@@ -54,12 +54,18 @@ options = HandLandmarkerOptions(
 with HandLandmarker.create_from_options(options) as landmarker:
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     cap = cv2.VideoCapture(0)
 =======
+=======
+>>>>>>> dbb63e267a81335d039e915eff639bdb15423a5a
     if(get_os() == "mac"):
         cap = cv2.VideoCapture(1)
     else:
         cap = cv2.VideoCapture(0)
+<<<<<<< HEAD
+>>>>>>> dbb63e267a81335d039e915eff639bdb15423a5a
+=======
 >>>>>>> dbb63e267a81335d039e915eff639bdb15423a5a
 
     # Optional HD
