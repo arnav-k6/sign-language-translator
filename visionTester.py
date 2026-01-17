@@ -24,10 +24,16 @@ options = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
     running_mode=VisionRunningMode.LIVE_STREAM,
     num_hands=2,
-    result_callback=print_result)
+    result_callback=print_result,
+    min_tracking_confidence=0.5,
+    min_hand_detection_confidence=0.5,
+    min_hand_presence_confidence=0.5
+    )
 
 with HandLandmarker.create_from_options(options) as landmarker:
     cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     
     while cap.isOpened():
         success, frame = cap.read()
