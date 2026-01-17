@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import numpy as np
 import time
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -27,6 +28,7 @@ HAND_CONNECTIONS = [
 ]
 
 TIP_IDS = [4, 8, 12, 16, 20]
+hand_data = []
 
 latest_result = None
 
@@ -64,25 +66,34 @@ with HandLandmarker.create_from_options(options) as landmarker:
 
     while cap.isOpened():
         success, frame = cap.read()
-        if not success:
-            print("No camera frame")
-            break
+        if not success: break
 
+        # 1. CAPTURE KEYPRESS ONCE PER LOOP
+        key = cv2.waitKey(1) & 0xFF
+        
         frame = cv2.flip(frame, 1)
-
-        # Convert to MediaPipe Image
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(
-            image_format=mp.ImageFormat.SRGB,
-            data=rgb
-        )
-
-        # Async detect
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        
         timestamp = int(time.time() * 1000)
         landmarker.detect_async(mp_image, timestamp)
 
         # ============ DRAWING ============
         if latest_result and latest_result.hand_landmarks:
+
+            first_hand = latest_result.hand_landmarks[0]
+    
+            for lm in first_hand:
+                hand_data.append(lm.x)
+                hand_data.append(lm.y)
+                hand_data.append(lm.z)
+
+
+            if(len(hand_data) == 63):
+                if key == ord('d'):
+                    with open("dataset.txt", "a") as f:
+                        f.write(str(hand_data) + "\n")
+                    hand_data = []
 
             for hand_landmarks in latest_result.hand_landmarks:
 
@@ -114,7 +125,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
         # Show
         cv2.imshow('Hand Tracking - Tasks API', frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if key == ord('q'):
             break
 
 

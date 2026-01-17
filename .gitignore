@@ -68,3 +68,4 @@ temp/
 credentials.json
 secrets.json
 config.yaml
+requirements.txt
