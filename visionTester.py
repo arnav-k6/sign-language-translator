@@ -54,9 +54,9 @@ options = HandLandmarkerOptions(
 with HandLandmarker.create_from_options(options) as landmarker:
 
     if(get_os() == "mac"):
-        cap = cv2.VideoCapture(0)
-    else:
         cap = cv2.VideoCapture(1)
+    else:
+        cap = cv2.VideoCapture(0)
 
     # Optional HD
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
