@@ -3,6 +3,7 @@ import mediapipe as mp
 import time
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from detect import get_os
 
 
 # ================= CONFIG =================
@@ -52,7 +53,10 @@ options = HandLandmarkerOptions(
 # =============== MAIN LOOP =================
 with HandLandmarker.create_from_options(options) as landmarker:
 
-    cap = cv2.VideoCapture(0)
+    if(get_os() == "mac"):
+        cap = cv2.VideoCapture(0)
+    else:
+        cap = cv2.VideoCapture(1)
 
     # Optional HD
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
