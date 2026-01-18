@@ -3,8 +3,13 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import HomePage from './HomePage'
 import Settings from './Settings'
 import './App.css'
+<<<<<<< HEAD
 import Transcriber from './Transcriber'
 const API_URL = 'http://localhost:5000'
+=======
+
+const API_URL = 'http://localhost:5001'
+>>>>>>> 59acc20c425075ce74afb17215de55839477445b
 
 function TrackerPage({ theme, onSettingsOpen }) {
   const navigate = useNavigate()
