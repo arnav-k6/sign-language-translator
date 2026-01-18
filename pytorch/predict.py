@@ -10,8 +10,8 @@ from mediapipe.tasks.python import vision
 from model import SignModel
 
 
-SIGNS = ["hello","father","mother","no",
-         "me","thankyou","help","what"]
+
+SIGNS = ["hello", "me", "thankyou", "no", "yes"]
 
 
 # ===== MediaPipe =====
@@ -24,15 +24,16 @@ hand_options = vision.HandLandmarkerOptions(
 )
 hand_detector = vision.HandLandmarker.create_from_options(hand_options)
 
+
 face_options = vision.FaceLandmarkerOptions(
     base_options=python.BaseOptions(model_asset_path='face_landmarker.task'),
-    num_faces=1
+    num_faces=5
 )
 face_detector = vision.FaceLandmarker.create_from_options(face_options)
 
 
 # ===== Load YOUR model =====
-model = SignModel()
+model = SignModel(len(SIGNS))
 if torch.cuda.is_available():
     map_location = None # default
 else:
@@ -155,31 +156,49 @@ while True:
     # 2. Strict HELLO Check
     is_hello_frame = False
     
-    if hand_result.hand_landmarks and face_result.face_landmarks:
-        # Check first found hand/face
-        hand_lm = hand_result.hand_landmarks[0]
-        face_lm = face_result.face_landmarks[0]
-        
-        index_tip = hand_lm[8]
-        nose = face_lm[1]
-        
-        dist = get_dist(index_tip, nose)
-        
-        is_moving_away = False
-        if prev_dist is not None:
-             # Reduced threshold slightly to catch slower movements
-             if dist > prev_dist + 0.002: 
-                 is_moving_away = True
-        
-        is_above = index_tip.y < nose.y 
-        is_side = abs(index_tip.x - nose.x) > 0.05 
-        is_close_range = dist < 1.0 
 
-        if is_above and is_side and is_close_range and is_moving_away: 
-            if are_fingers_extended(hand_lm):
-                is_hello_frame = True
+    if hand_result.hand_landmarks and face_result.face_landmarks:
+        # Check first found hand
+        hand_lm = hand_result.hand_landmarks[0]
         
-        prev_dist = dist
+        # Iterate over all faces to find matching one
+        found_hello_face = False
+        
+        for face_lm in face_result.face_landmarks:
+             index_tip = hand_lm[8]
+             nose = face_lm[1]
+             
+             # Save current tip position for visualization (just from the last checked face or logic)
+             current_index_pos = (int(index_tip.x * frame.shape[1]), int(index_tip.y * frame.shape[0]))
+             
+             dist = get_dist(index_tip, nose)
+             
+             is_moving_away = False
+             if prev_dist is not None:
+                  # Note: prev_dist might be from a different face in previous frame. 
+                  # For robust multi-face, we'd need ID tracking.
+                  # But for simple rule-based, checking if ANY face matches criteria is okay.
+                  if dist > prev_dist + 0.002: 
+                      is_moving_away = True
+             
+             is_above = index_tip.y < nose.y 
+             is_side = abs(index_tip.x - nose.x) > 0.05 
+             is_close_range = dist < 1.0 
+    
+             if is_above and is_side and is_close_range and is_moving_away: 
+                 if are_fingers_extended(hand_lm):
+                     is_hello_frame = True
+                     prev_dist = dist 
+                     found_hello_face = True
+                     break 
+        
+        # If no face matched HELLO criteria, we still need a prev_dist for the NEXT frame check.
+        # We'll default to the closest face or just the first one?
+        # If we didn't find a match, let's track the first face's distance to keep the logic running.
+        if not found_hello_face:
+             nose0 = face_result.face_landmarks[0][1]
+             dist0 = get_dist(hand_lm[8], nose0)
+             prev_dist = dist0
     
     # Stability Check
     if is_hello_frame:
@@ -192,7 +211,7 @@ while True:
         current_text = "HELLO"
         # Reset counter to avoid rapid re-triggering if we want pulse, keeps it on if held
         # but here we want to EXTEND it.
-        hello_cooldown = 40 # Hold for ~1.3 seconds -> "output the hello longer"
+        hello_cooldown = 10 # Hold for ~1.3 seconds -> "output the hello longer"
 
 
     cv2.putText(frame, current_text,

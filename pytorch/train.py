@@ -59,7 +59,7 @@ from model import SignModel
 import glob
 
 # ===== CONFIG =====
-SIGNS = ["hello"]   # later you can add more signs here
+SIGNS = ["hello", "me", "thankyou", "no", "yes"]   # later you can add more signs here
 
 X, Y = [], []
 
@@ -86,11 +86,12 @@ Y = np.array(Y)
 
 print("Training samples:", X.shape)
 
+
 # ===== TO TENSORS =====
 tensor_x = torch.tensor(X, dtype=torch.float32)
 tensor_y = torch.tensor(Y, dtype=torch.long)
 
-model = SignModel()
+model = SignModel(len(SIGNS))
 opt = torch.optim.Adam(model.parameters(), lr=0.001)
 loss_fn = nn.CrossEntropyLoss()
 
