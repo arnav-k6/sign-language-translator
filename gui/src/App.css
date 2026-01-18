@@ -1307,3 +1307,70 @@
     max-height: calc(100vh - 32px);
   }
 }
+
+/* Enhanced Prediction Overlay */
+.video-container {
+  position: relative;
+  /* Ensure overlay is positioned relative to this */
+}
+
+.prediction-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+
+  background: rgba(15, 23, 42, 0.6);
+  /* refined dark glass */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  border-radius: 16px;
+  padding: 16px 24px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.prediction-content {
+  text-align: center;
+}
+
+.prediction-label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.prediction-text {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  color: white;
+  /* Solid white for maximum visibility */
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  min-height: 48px;
+}

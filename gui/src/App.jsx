@@ -4,7 +4,11 @@ import HomePage from './HomePage'
 import Settings from './Settings'
 import './App.css'
 
+
+
+import EnhancedPage from './EnhancedPage'
 import Transcriber from './Transcriber'
+
 const API_URL = 'http://localhost:5001'
 
 function TrackerPage({ theme, onSettingsOpen }) {
@@ -367,6 +371,7 @@ function TrackerPage({ theme, onSettingsOpen }) {
   )
 }
 
+
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [theme, setTheme] = useState(() => {
@@ -392,7 +397,9 @@ function App() {
             />
           }
         />
+
         <Route path="/transcriber" element={<Transcriber onSettingsOpen={() => setSettingsOpen(true)} />} />
+        <Route path="/enhanced" element={<EnhancedPage theme={theme} />} />
       </Routes>
 
       <Settings
