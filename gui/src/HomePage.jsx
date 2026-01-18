@@ -1,7 +1,25 @@
 import { useNavigate } from 'react-router-dom'
 import './App.css'
 function HomePage({ onSettingsOpen }) {
+
     const navigate = useNavigate()
+    const API_URL = 'http://localhost:5001'
+
+    const launchEnhancedMode = async () => {
+        try {
+            const response = await fetch(`${API_URL}/launch_enhanced`, {
+                method: 'POST',
+            });
+            const data = await response.json();
+            if (data.success) {
+                console.log("Launched enhanced mode");
+            } else {
+                console.error("Failed to launch", data.message);
+            }
+        } catch (err) {
+            console.error("Error launching enhanced mode", err);
+        }
+    }
 
     return (
         <div className="homepage">
@@ -31,6 +49,12 @@ function HomePage({ onSettingsOpen }) {
                     </button>
                     <button className="hero-cta-2" onClick={() => navigate('/transcriber')}>
                         Get Started with Video Transcriber
+                        <span className="cta-arrow">→</span>
+                    </button>
+
+
+                    <button className="hero-cta-3" onClick={() => navigate('/enhanced')}>
+                        Get Started with Enhanced Sign Language
                         <span className="cta-arrow">→</span>
                     </button>
                 </div>

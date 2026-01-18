@@ -143,7 +143,39 @@
   transition: transform 0.3s ease;
 }
 
+
 .hero-cta:hover .cta-arrow {
+  transform: translateX(4px);
+}
+
+.hero-cta-3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  padding: 14px 36px;
+  min-width: 420px;
+  margin-top: 20px;
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 24px var(--glow-color);
+}
+
+.hero-cta-3:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 40px var(--glow-color);
+}
+
+.hero-cta-3:hover .cta-arrow {
   transform: translateX(4px);
 }
 
