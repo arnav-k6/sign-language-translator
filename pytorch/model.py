@@ -1,20 +1,24 @@
+import torch
 import torch.nn as nn
 
-class GestureNet(nn.Module):
-
-    def __init__(self, num_classes=5):
+class SignModel(nn.Module):
+    def __init__(self, num_classes=8):
         super().__init__()
 
-        self.net = nn.Sequential(
-            nn.Linear(25200, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
+        self.lstm = nn.LSTM(
+            input_size=126,
+            hidden_size=128,
+            num_layers=2,
+            batch_first=True
+        )
 
-            nn.Linear(512, 128),
+        self.fc = nn.Sequential(
+            nn.Linear(128, 64),
             nn.ReLU(),
-
-            nn.Linear(128, num_classes)
+            nn.Linear(64, num_classes)
         )
 
     def forward(self, x):
-        return self.net(x)
+        out, _ = self.lstm(x)
+        out = out[:, -1, :]
+        return self.fc(out)

@@ -1,53 +1,123 @@
+"""import numpy as np
 import torch
-import torch.nn as nn
-import numpy as np
-import glob
-import os
+from torch import nn
+from model import SignModel
 
-class TwoHandNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(126, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, 26)
-        )
+SIGNS = ["hello"] 
 
-    def forward(self, x):
-        return self.net(x)
+#"father","mother","no","me","thankyou","help","what"
 
-X = []
-y = []
+X, Y = [], []
 
-for i, letter in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
-    files = glob.glob(f"dataset/{letter}/*.csv")
+for i, s in enumerate(SIGNS):
+    data = np.load(f"dataset/{s}.npy")   # shape: (samples, 20, 126)
+    X.append(data)
+    Y += [i] * len(data)
 
-    for f in files:
-        data = np.loadtxt(f, delimiter=',')
-        mean_frame = data.reshape(-1,126).mean(axis=0)
+X = np.concatenate(X, axis=0)   # (N, 20, 126)
+Y = np.array(Y)
 
-        X.append(mean_frame)
-        y.append(i)
+tensor_x = torch.tensor(X, dtype=torch.float32)
+tensor_y = torch.tensor(Y, dtype=torch.long)
 
-X = torch.tensor(X, dtype=torch.float32)
-y = torch.tensor(y)
-
-model = TwoHandNet()
+model = SignModel()
 opt = torch.optim.Adam(model.parameters(), lr=0.001)
 loss_fn = nn.CrossEntropyLoss()
 
-for epoch in range(200):
-    out = model(X)
-    loss = loss_fn(out, y)
+# ===== MINI BATCH TRAINING =====
+for epoch in range(60):
 
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
+    perm = torch.randperm(len(tensor_x))
 
-    if epoch % 20 == 0:
-        print("loss:", loss.item())
+    total = 0
 
-torch.save(model.state_dict(), "two_hand_asl.pth")
-print("✅ MODEL SAVED")
+    for i in range(0, len(tensor_x), 8):
+        idx = perm[i:i+8]
+
+        batch_x = tensor_x[idx]   # (8, 20, 126)
+        batch_y = tensor_y[idx]
+
+        opt.zero_grad()
+
+        pred = model(batch_x)
+        loss = loss_fn(pred, batch_y)
+
+        loss.backward()
+        opt.step()
+
+        total += loss.item()
+
+    print("epoch", epoch, "loss:", round(total, 4))
+
+torch.save(model.state_dict(), "sign_model.pth")
+print("MODEL SAVED")
+"""
+import numpy as np
+import torch
+from torch import nn
+from model import SignModel
+import glob
+
+# ===== CONFIG =====
+SIGNS = ["hello"]   # later you can add more signs here
+
+X, Y = [], []
+
+# ===== LOAD DATA FROM SUBFOLDERS =====
+for i, s in enumerate(SIGNS):
+
+    # Load all .npy files inside dataset/hello/
+    files = glob.glob(f"dataset/{s}/*.npy")
+
+    if len(files) == 0:
+        raise Exception(f"No .npy files found in dataset/{s}/")
+
+    samples = [np.load(f) for f in files]
+
+    data = np.concatenate(samples, axis=0)   # (samples, 20, 126)
+
+    X.append(data)
+    Y += [i] * len(data)
+
+# Combine all classes
+X = np.concatenate(X, axis=0)   # (N, 20, 126)
+Y = np.array(Y)
+
+print("Training samples:", X.shape)
+
+# ===== TO TENSORS =====
+tensor_x = torch.tensor(X, dtype=torch.float32)
+tensor_y = torch.tensor(Y, dtype=torch.long)
+
+model = SignModel()
+opt = torch.optim.Adam(model.parameters(), lr=0.001)
+loss_fn = nn.CrossEntropyLoss()
+
+# ===== MINI BATCH TRAINING =====
+for epoch in range(60):
+
+    perm = torch.randperm(len(tensor_x))
+
+    total = 0
+
+    for i in range(0, len(tensor_x), 8):
+        idx = perm[i:i+8]
+
+        batch_x = tensor_x[idx]   # (8, 20, 126)
+        batch_y = tensor_y[idx]
+
+        opt.zero_grad()
+
+        pred = model(batch_x)
+        loss = loss_fn(pred, batch_y)
+
+        loss.backward()
+        opt.step()
+
+        total += loss.item()
+
+    print("epoch", epoch, "loss:", round(total, 4))
+
+# ===== SAVE MODEL =====
+torch.save(model.state_dict(), "sign_model.pth")
+print("MODEL SAVED")
