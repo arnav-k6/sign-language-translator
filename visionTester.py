@@ -9,6 +9,7 @@ from detect import get_os
 
 # ================= CONFIG =================
 model_path = 'hand_landmarker.task'
+numberOfHands = 2
 
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -43,7 +44,7 @@ def print_result(result: HandLandmarkerResult, output_image: mp.Image, timestamp
 options = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
     running_mode=VisionRunningMode.LIVE_STREAM,
-    num_hands=2,
+    num_hands=numberOfHands,
     result_callback=print_result,
 
     min_tracking_confidence=0.4,
@@ -89,7 +90,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
 
             # 3. SAVE LOGIC
             if key == ord('d'):
-                if len(current_frame_landmarks) == 63:
+                if len(current_frame_landmarks) == 63*numberOfHands:
                     with open("dataset.txt", "a") as f:
                         # Convert to string and strip brackets for cleaner data
                         data_str = ",".join(map(str, current_frame_landmarks))
