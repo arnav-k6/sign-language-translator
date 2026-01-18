@@ -38,14 +38,14 @@ SCALER_FILE = 'gesture_scaler.pkl'
 LABEL_ENCODER_FILE = 'label_encoder.pkl'
 
 # Hyperparameters (settings that control training)
-BATCH_SIZE = 64       # Larger batch size for more stable gradients
+BATCH_SIZE = 128       # Larger batch size for more stable gradients
 EPOCHS = 300          # Reduced epochs with early stopping
 LEARNING_RATE = 0.0003 # Smaller learning rate for better convergence
 HIDDEN_SIZE_1 = 256   # Neurons in first hidden layer
 HIDDEN_SIZE_2 = 128   # Neurons in second hidden layer
 TEST_SIZE = 0.2       # 20% of data for testing
 WEIGHT_DECAY = 1e-4   # L2 regularization to prevent overfitting
-DROPOUT_RATE = 0.5    # Higher dropout to prevent overfitting
+DROPOUT_RATE = 0.3    # Moderate dropout for regularization
 EARLY_STOP_PATIENCE = 30  # Stop if no improvement for 30 epochs
 
 # Device: Use GPU if available, else CPU
@@ -83,7 +83,7 @@ class SignLanguageClassifier(nn.Module):
     You define layers in __init__, and the forward pass in forward().
     """
     
-    def __init__(self, input_size, hidden1, hidden2, num_classes, dropout_rate=0.5):
+    def __init__(self, input_size, hidden1, hidden2, num_classes, dropout_rate=0.3):
         super(SignLanguageClassifier, self).__init__()
         
         # Define layers
@@ -210,7 +210,7 @@ def main():
     
     # Separate features and labels
     X = df.drop('label', axis=1).values
-    y = df['label'].values
+    y = df['label'].astype(str).values  # Convert to string to handle mixed types
     
     # ===== STEP 2: Encode Labels =====
     print("\n[2/5] Encoding labels...")
