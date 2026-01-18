@@ -10,6 +10,25 @@
   padding: 40px;
 }
 
+.home-nav {
+  position: absolute;
+  top: 40px;
+  right: 40px;
+  z-index: 100;
+}
+
+.glass-btn {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1) rotate(90deg);
+}
+
 /* Hero Section */
 .hero {
   display: flex;
@@ -451,6 +470,27 @@
   gap: 16px;
 }
 
+.video-section .card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px;
+}
+
+.video-section .card h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.video-section input[type="file"] {
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px dashed var(--border-color);
+  color: var(--text-secondary);
+}
+
 .video-container {
   position: relative;
   background: var(--bg-card);
@@ -735,25 +775,26 @@
 .settings-modal {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
+  border-radius: 24px;
   width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
+  max-width: 600px;
+  max-height: 85vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.3s ease;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(40px) scale(0.95);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -845,7 +886,7 @@
 }
 
 .setting-description {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
 }
 
@@ -853,8 +894,8 @@
 .theme-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
+  gap: 10px;
+  padding: 12px 20px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 20px;
@@ -877,12 +918,12 @@
 }
 
 .theme-icon {
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .theme-text {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -893,15 +934,15 @@
 }
 
 .num-hands-btn {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
@@ -922,54 +963,55 @@
 .slider-container {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
 }
 
 .settings-slider {
   flex: 1;
-  height: 6px;
+  height: 8px;
   -webkit-appearance: none;
   appearance: none;
   background: var(--bg-secondary);
-  border-radius: 3px;
+  border-radius: 4px;
   outline: none;
 }
 
 .settings-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
   border-radius: 50%;
   cursor: pointer;
   transition: transform 0.2s ease;
+  box-shadow: 0 4px 12px var(--shadow-color);
 }
 
 .settings-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  transform: scale(1.1);
 }
 
 .slider-value {
-  min-width: 50px;
-  padding: 6px 12px;
+  min-width: 60px;
+  padding: 8px 16px;
   background: var(--bg-secondary);
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--accent-primary);
   text-align: center;
 }
 
 /* Save Message */
 .save-message {
-  padding: 12px 16px;
+  padding: 16px 20px;
   background: var(--bg-secondary);
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 12px;
+  font-size: 15px;
   color: var(--text-primary);
   text-align: center;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 /* Settings Footer */

@@ -1,0 +1,27 @@
+﻿python : <frozen 
+importlib._bootstrap>:491: 
+Warning: Numpy built with 
+MINGW-W64 on Windows 64 
+bits is experimental, and 
+only available for 
+At line:1 char:1
++ python server.py 2>&1 | 
+Out-File -FilePath 
+server_error.txt -Encoding 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (<froz  
+  en importl... available   
+  for :String) [], Remot    
+eException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+testing. You are advised 
+not to use it for 
+production. 
+
+CRASHES ARE TO BE EXPECTED 
+- PLEASE REPORT THEM TO 
+NUMPY DEVELOPERS

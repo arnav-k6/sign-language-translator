@@ -70,22 +70,34 @@ def load_model():
     model_path = os.path.join(script_dir, MODEL_FILE)
     scaler_path = os.path.join(script_dir, SCALER_FILE)
 
-    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+    print(f"  📁 Model path: {model_path}")
+    print(f"  📁 Scaler path: {scaler_path}")
 
-    _ml_model = SignLanguageClassifier(
-        checkpoint['input_size'],
-        checkpoint['hidden1'],
-        checkpoint['hidden2'],
-        checkpoint['num_classes']
-    )
-    _ml_model.load_state_dict(checkpoint['model_state_dict'])
-    _ml_model.eval()
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    if not os.path.exists(scaler_path):
+        raise FileNotFoundError(f"Scaler file not found: {scaler_path}")
 
-    _classes = checkpoint['label_encoder_classes']
-    _scaler = joblib.load(scaler_path)
+    try:
+        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
 
-    print(f"  ✅ Model loaded: {list(_classes)}")
-    return _ml_model, _scaler, _classes
+        _ml_model = SignLanguageClassifier(
+            checkpoint['input_size'],
+            checkpoint['hidden1'],
+            checkpoint['hidden2'],
+            checkpoint['num_classes']
+        )
+        _ml_model.load_state_dict(checkpoint['model_state_dict'])
+        _ml_model.eval()
+
+        _classes = checkpoint['label_encoder_classes']
+        _scaler = joblib.load(scaler_path)
+
+        print(f"  ✅ Model loaded: {list(_classes)}")
+        return _ml_model, _scaler, _classes
+    except Exception as e:
+        print(f"  ❌ Failed to load model: {e}")
+        raise
 
 
 def get_empty_hand():
@@ -129,7 +141,7 @@ def predict_gesture(model, scaler, classes, left_features, right_features, mode=
     return str(predicted_class), float(confidence_value)
 
 
-def transcribe_video_file(video_path: str, mode: str = 'both', confidence_threshold: float = 0.5, stability_frames: int = 3) -> str:
+def transcribe_video_file(video_path: str, mode: str = 'both', confidence_threshold: float = 0.75, min_stable_duration: float = 0.25) -> str:
     """
     Transcribe a video file of sign language to text.
 
@@ -137,7 +149,7 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
         video_path: Path to the video file.
         mode: Prediction mode ('letters', 'numbers', or 'both').
         confidence_threshold: Minimum confidence to consider a prediction.
-        stability_frames: Number of consecutive frames with the same prediction to confirm a character.
+        min_stable_duration: Minimum duration (in seconds) a gesture must be held to be transcribed.
 
     Returns:
         Transcribed text string.
@@ -173,17 +185,27 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
     if fps <= 0:
         fps = 30  # Default fallback
 
+    # Calculate required stable frames based on duration
+    required_stable_frames = max(1, int(fps * min_stable_duration))
+    max_grace_frames = max(1, int(fps * 0.15)) # 0.15s grace period
+
+    print(f"  📊 Video FPS: {fps}")
+    print(f"  ⏱️ Stability threshold: {min_stable_duration}s ({required_stable_frames} frames)")
+    print(f"  🛡️ Grace period: 0.15s ({max_grace_frames} frames)")
+
     result_text = []
     last_char = None
     stable_count = 0
+    grace_counter = 0
     frame_idx = 0
-
-    print(f"  📊 Video FPS: {fps}")
 
     while cap.isOpened():
         success, frame = cap.read()
         if not success:
             break
+
+        # Flip frame to match training data (mirror mode)
+        frame = cv2.flip(frame, 1)
 
         # Convert to RGB for MediaPipe
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -202,6 +224,10 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
         # Extract landmarks
         left_features = get_empty_hand()
         right_features = get_empty_hand()
+        
+        detected_this_frame = False
+        predicted_char = None
+        confidence = 0.0
 
         if result.hand_landmarks:
             for idx, hand_lms in enumerate(result.hand_landmarks):
@@ -213,26 +239,46 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
 
             # Make prediction
             predicted_char, confidence = predict_gesture(model, scaler, classes, left_features, right_features, mode)
-
+            
             if confidence >= confidence_threshold:
-                if predicted_char == last_char:
-                    stable_count += 1
-                else:
-                    last_char = predicted_char
-                    stable_count = 1
+                detected_this_frame = True
 
-                # If stable for enough frames, add to result
-                if stable_count == stability_frames:
-                    # Only add if it's different from the last added character
-                    if not result_text or result_text[-1] != predicted_char:
-                        result_text.append(predicted_char)
-                        print(f"  ✅ Detected: '{predicted_char}' (conf: {confidence:.2f})")
+        # Stability Logic with Grace Period
+        if detected_this_frame:
+            # We have a good prediction
+            if predicted_char == last_char:
+                # Continuing the same sign
+                stable_count += 1
+                grace_counter = 0 # Reset grace period
             else:
-                # Reset stability if confidence drops
-                stable_count = 0
+                # New sign detected (different from potential ongoing stable sign)
+                # But is it just noise? Only switch if we've really lost the previous one
+                # OR if we were in grace period, maybe the old one is gone.
+                last_char = predicted_char
+                stable_count = 1
+                grace_counter = 0
+            
+            # Check if we've held it long enough
+            if stable_count == required_stable_frames:
+                # Only add if it's different from the last *output* character
+                if not result_text or result_text[-1] != predicted_char:
+                    result_text.append(predicted_char)
+                    print(f"  ✅ Detected: '{predicted_char}' (conf: {confidence:.2f})")
+        
         else:
-            # No hands detected - could indicate a pause/space
-            stable_count = 0
+            # No detection or low confidence
+            if stable_count > 0:
+                # We were tracking something. Enter grace period.
+                grace_counter += 1
+                if grace_counter > max_grace_frames:
+                    # Grace period expired. Reset.
+                    stable_count = 0
+                    grace_counter = 0
+                    last_char = None
+            else:
+                 # Wasn't tracking anything anyway
+                 stable_count = 0 
+                 last_char = None
 
         frame_idx += 1
 

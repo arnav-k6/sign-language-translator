@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
-const API_URL = "http://localhost:5000"
+const API_URL = "http://localhost:5001"
 
-export default function Transcriber() {
+export default function Transcriber({ onSettingsOpen }) {
     const navigate = useNavigate()
 
     const [videoFile, setVideoFile] = useState(null)
@@ -39,9 +39,13 @@ export default function Transcriber() {
                 body: formData
             })
             const data = await res.json()
-            setTranscript(data.text)
-        } catch {
-            setError("Transcription failed.")
+            if (!res.ok || data.error) {
+                setError(data.error || `Server error: ${res.status}`)
+            } else {
+                setTranscript(data.text || "(No text detected)")
+            }
+        } catch (err) {
+            setError(`Transcription failed: ${err.message}`)
         } finally {
             setLoading(false)
         }
@@ -56,6 +60,11 @@ export default function Transcriber() {
                         ← Back
                     </button>
                     <h1>🎥 Sign Language Video Transcriber</h1>
+                </div>
+                <div className="header-right">
+                    <button className="settings-btn" onClick={onSettingsOpen}>
+                        ⚙️
+                    </button>
                 </div>
             </header>
 

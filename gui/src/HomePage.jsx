@@ -1,10 +1,17 @@
 import { useNavigate } from 'react-router-dom'
 import './App.css'
-function HomePage() {
+function HomePage({ onSettingsOpen }) {
     const navigate = useNavigate()
 
     return (
         <div className="homepage">
+            {/* Header / Nav */}
+            <nav className="home-nav">
+                <button className="settings-btn glass-btn" onClick={onSettingsOpen}>
+                    ⚙️
+                </button>
+            </nav>
+
             {/* Hero Section */}
             <section className="hero">
                 <div className="hero-content">

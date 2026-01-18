@@ -3,13 +3,9 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import HomePage from './HomePage'
 import Settings from './Settings'
 import './App.css'
-<<<<<<< HEAD
 import Transcriber from './Transcriber'
-const API_URL = 'http://localhost:5000'
-=======
 
 const API_URL = 'http://localhost:5001'
->>>>>>> 59acc20c425075ce74afb17215de55839477445b
 
 function TrackerPage({ theme, onSettingsOpen }) {
   const navigate = useNavigate()
@@ -386,7 +382,7 @@ function App() {
   return (
     <div className="app">
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<HomePage onSettingsOpen={() => setSettingsOpen(true)} />} />
         <Route
           path="/tracker"
           element={
@@ -396,7 +392,7 @@ function App() {
             />
           }
         />
-        <Route path="/transcriber" element={<Transcriber />} />
+        <Route path="/transcriber" element={<Transcriber onSettingsOpen={() => setSettingsOpen(true)} />} />
       </Routes>
 
       <Settings

@@ -186,6 +186,50 @@ function Settings({ isOpen, onClose, theme, onThemeChange }) {
                         </div>
                     </div>
 
+
+                    {/* Video Transcription Settings */}
+                    <div className="settings-section">
+                        <h3>Video Transcription</h3>
+
+                        <div className="setting-row slider-row">
+                            <div className="setting-info">
+                                <span className="setting-label">Stability Duration (s)</span>
+                                <span className="setting-description">Time to hold sign (lower = faster)</span>
+                            </div>
+                            <div className="slider-container">
+                                <input
+                                    type="range"
+                                    min="0.1"
+                                    max="2.0"
+                                    step="0.05"
+                                    value={settings.min_stable_duration || 0.25}
+                                    onChange={e => handleSliderChange('min_stable_duration', e.target.value)}
+                                    className="settings-slider"
+                                />
+                                <span className="slider-value">{(settings.min_stable_duration || 0.25).toFixed(2)}s</span>
+                            </div>
+                        </div>
+
+                        <div className="setting-row slider-row">
+                            <div className="setting-info">
+                                <span className="setting-label">Transcription Confidence</span>
+                                <span className="setting-description">Min confidence to transcribe</span>
+                            </div>
+                            <div className="slider-container">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={settings.transcription_confidence || 0.75}
+                                    onChange={e => handleSliderChange('transcription_confidence', e.target.value)}
+                                    className="settings-slider"
+                                />
+                                <span className="slider-value">{(settings.transcription_confidence || 0.75).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Save Message */}
                     {saveMessage && (
                         <div className="save-message">{saveMessage}</div>

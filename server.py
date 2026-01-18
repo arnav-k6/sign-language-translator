@@ -38,7 +38,9 @@ current_settings = {
     'min_tracking_confidence': 0.4,
     'min_hand_detection_confidence': 0.4,
     'min_hand_presence_confidence': 0.6,
-    'prediction_mode': 'both'  # 'letters', 'numbers', or 'both'
+    'prediction_mode': 'both',  # 'letters', 'numbers', or 'both'
+    'min_stable_duration': 0.25, # seconds
+    'transcription_confidence': 0.75,
 }
 
 BaseOptions = mp.tasks.BaseOptions
@@ -434,14 +436,25 @@ def transcribe_video():
     try:
         video_file.save(temp_path)
         
-        # Get prediction mode from settings
+        # Get settings
         mode = current_settings.get('prediction_mode', 'both')
+        min_stable_duration = current_settings.get('min_stable_duration', 0.25)
+        confidence_threshold = current_settings.get('transcription_confidence', 0.75)
         
+        print(f"Using settings: duration={min_stable_duration}s, conf={confidence_threshold}")
+
         # Transcribe the video
-        result_text = transcribe_video_file(temp_path, mode=mode)
+        result_text = transcribe_video_file(
+            temp_path, 
+            mode=mode,
+            confidence_threshold=confidence_threshold,
+            min_stable_duration=min_stable_duration
+        )
         
         return jsonify({"text": result_text, "success": True})
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Transcription error: {e}")
         return jsonify({"error": str(e), "text": ""}), 500
     finally:
@@ -526,6 +539,16 @@ def update_settings():
             mode = data['prediction_mode']
             if mode in ['letters', 'numbers', 'both']:
                 current_settings['prediction_mode'] = mode
+
+        if 'min_stable_duration' in data:
+            val = float(data['min_stable_duration'])
+            if 0.1 <= val <= 3.0: # Sensible limits
+                current_settings['min_stable_duration'] = val
+        
+        if 'transcription_confidence' in data:
+            val = float(data['transcription_confidence'])
+            if 0 <= val <= 1.0:
+                current_settings['transcription_confidence'] = val
         
         # Flag for landmarker recreation
         settings_changed = True
