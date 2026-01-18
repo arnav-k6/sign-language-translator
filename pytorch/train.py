@@ -72,9 +72,10 @@ for i, s in enumerate(SIGNS):
     if len(files) == 0:
         raise Exception(f"No .npy files found in dataset/{s}/")
 
+
     samples = [np.load(f) for f in files]
 
-    data = np.concatenate(samples, axis=0)   # (samples, 20, 126)
+    data = np.array(samples)   # (samples, 20, 126)
 
     X.append(data)
     Y += [i] * len(data)

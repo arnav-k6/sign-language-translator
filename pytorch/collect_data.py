@@ -154,65 +154,50 @@ for sign in SIGNS:
     print(f"\n===== Collecting for: {sign} =====")
     input("Press ENTER to start recording...")
 
-    seq = deque(maxlen=20)   # 20 frames per sample
-    samples = []
 
-    while len(samples) < 40:   # 40 sequences per sign
-        ret, frame = cap.read()
-        if not ret:
-            continue
+    for count in range(40):
+        # Allow user to get ready
+        while True:
+            ret, frame = cap.read()
+            if not ret: continue
+            frame = cv2.flip(frame, 1)
+            cv2.putText(frame, f"Ready? Press SPACE for sample {count+1}/40", (20,40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,255), 2)
+            cv2.putText(frame, f"Collecting: {sign}", (20,80),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,0), 2)
+            cv2.imshow("collect", frame)
+            
+            if cv2.waitKey(1) == 32: # SPACE
+                break
+            if cv2.waitKey(1) == 27: # ESC
+                cap.release()
+                cv2.destroyAllWindows()
+                exit()
 
-        frame = cv2.flip(frame, 1)
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Record 20 frames
+        seq = []
+        while len(seq) < 20:
+            ret, frame = cap.read()
+            if not ret: continue
+            
+            frame = cv2.flip(frame, 1)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = Image(image_format=ImageFormat.SRGB, data=rgb)
+            
+            result = landmarker.detect(mp_image)
+            vec = landmarks_to_vector(result)
+            seq.append(vec)
+            
+            cv2.putText(frame, f"Recording {len(seq)}/20", (20,40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+            cv2.imshow("collect", frame)
+            cv2.waitKey(1)
 
-        # ----- CREATE MEDIAPIPE IMAGE -----
-        mp_image = Image(
-            image_format=ImageFormat.SRGB,
-            data=rgb
-        )
+        # Save this distinct sample
+        save_path = f"dataset/{sign}/{sign}_{count}.npy"
+        np.save(save_path, np.array(seq))
+        print(f"Saved {save_path}")
 
-        result = landmarker.detect(mp_image)
-
-        vec = landmarks_to_vector(result)
-        seq.append(vec)
-
-        # When we have 20 frames → save 1 sample
-        if len(seq) == 20:
-            samples.append(np.array(seq))
-
-        cv2.putText(
-            frame,
-            f"{sign}: {len(samples)}/40",
-            (10,40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0,255,0),
-            2
-        )
-
-        cv2.imshow("collect", frame)
-
-        # ESC to cancel sign
-        if cv2.waitKey(1) == 27:
-            break
-
-    # ----- SAVE -----
-
-    """np.save(f"dataset/{sign}.npy", np.array(samples))
-    print(f"✅ Saved dataset/{sign}.npy  shape:",
-          np.array(samples).shape)"""
-    # create folder per sign
-    os.makedirs(f"dataset/{sign}", exist_ok=True)
-
-    # count existing recordings
-    count = len(glob.glob(f"dataset/{sign}/*.npy"))
-
-    save_path = f"dataset/{sign}/{sign}_{count}.npy"
-
-    np.save(save_path, np.array(samples))
-
-    print(f"✅ Saved {save_path}  shape:",
-        np.array(samples).shape)
 
 
 cap.release()
