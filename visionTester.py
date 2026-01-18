@@ -12,6 +12,12 @@ from dataparser import append_frame
 from collections import deque
 from dataparser import append_frame
 
+#pytorch
+import torch
+import torch.nn as nn
+import numpy as np
+
+
 BUFFER_SIZE = 200
 gesture_buffer = deque(maxlen=BUFFER_SIZE)
 
