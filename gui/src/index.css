@@ -1,3 +1,4 @@
+/* Dark Theme (Default) */
 :root {
   --bg-primary: #0a0a0f;
   --bg-secondary: #12121a;
@@ -11,6 +12,24 @@
   --text-secondary: #94a3b8;
   --border-color: #2a2a3a;
   --glow-color: rgba(99, 102, 241, 0.3);
+  --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #e2e8f0;
+  --bg-card: #ffffff;
+  --accent-primary: #6366f1;
+  --accent-secondary: #8b5cf6;
+  --accent-success: #10b981;
+  --accent-warning: #f59e0b;
+  --accent-danger: #ef4444;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: #cbd5e1;
+  --glow-color: rgba(99, 102, 241, 0.2);
+  --shadow-color: rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -25,6 +44,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {

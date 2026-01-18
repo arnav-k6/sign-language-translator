@@ -24,7 +24,14 @@ capture_count = 0
 is_running = True
 
 model_path = 'hand_landmarker.task'
-numberOfHands = 2
+
+# Current settings (configurable via API)
+current_settings = {
+    'num_hands': 2,
+    'min_tracking_confidence': 0.4,
+    'min_hand_detection_confidence': 0.4,
+    'min_hand_presence_confidence': 0.6
+}
 
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -46,6 +53,8 @@ TIP_IDS = [4, 8, 12, 16, 20]
 latest_result = None
 current_landmarks = []  # For API access
 lock = threading.Lock()
+landmarker = None
+settings_changed = False
 
 
 # =============== CALLBACK =================
@@ -54,19 +63,25 @@ def result_callback(result: HandLandmarkerResult, output_image: mp.Image, timest
     latest_result = result
 
 
-# =============== OPTIONS ==================
-options = HandLandmarkerOptions(
-    base_options=BaseOptions(model_asset_path=model_path),
-    running_mode=VisionRunningMode.LIVE_STREAM,
-    num_hands=numberOfHands,
-    result_callback=result_callback,
-    min_tracking_confidence=0.4,
-    min_hand_detection_confidence=0.4,
-    min_hand_presence_confidence=0.6
-)
+def create_landmarker():
+    """Create a new HandLandmarker with current settings"""
+    global landmarker
+    
+    options = HandLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=model_path),
+        running_mode=VisionRunningMode.LIVE_STREAM,
+        num_hands=current_settings['num_hands'],
+        result_callback=result_callback,
+        min_tracking_confidence=current_settings['min_tracking_confidence'],
+        min_hand_detection_confidence=current_settings['min_hand_detection_confidence'],
+        min_hand_presence_confidence=current_settings['min_hand_presence_confidence']
+    )
+    
+    return HandLandmarker.create_from_options(options)
 
-# Create landmarker
-landmarker = HandLandmarker.create_from_options(options)
+
+# Create initial landmarker
+landmarker = create_landmarker()
 
 # Camera setup
 if get_os() == "mac":
@@ -80,9 +95,17 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
 def generate_frames():
     """Generator for MJPEG video stream"""
-    global latest_result, current_landmarks, is_running
+    global latest_result, current_landmarks, is_running, landmarker, settings_changed
     
     while is_running and cap.isOpened():
+        # Check if settings changed and recreate landmarker
+        if settings_changed:
+            with lock:
+                if landmarker:
+                    landmarker.close()
+                landmarker = create_landmarker()
+                settings_changed = False
+        
         success, frame = cap.read()
         if not success:
             break
@@ -92,7 +115,12 @@ def generate_frames():
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         
         timestamp = int(time.time() * 1000)
-        landmarker.detect_async(mp_image, timestamp)
+        
+        try:
+            landmarker.detect_async(mp_image, timestamp)
+        except Exception as e:
+            print(f"Detection error: {e}")
+            continue
         
         # Process landmarks
         frame_landmarks = []
@@ -200,7 +228,8 @@ def quit_app():
     def shutdown():
         time.sleep(0.5)
         cap.release()
-        landmarker.close()
+        if landmarker:
+            landmarker.close()
     
     threading.Thread(target=shutdown, daemon=True).start()
     
@@ -242,8 +271,59 @@ def landmarks():
             return jsonify({"has_data": False})
 
 
+@app.route('/settings', methods=['GET'])
+def get_settings():
+    """Get current HandLandmarker settings"""
+    return jsonify(current_settings)
+
+
+@app.route('/settings', methods=['POST'])
+def update_settings():
+    """Update HandLandmarker settings"""
+    global current_settings, settings_changed
+    
+    try:
+        data = request.get_json()
+        
+        # Validate and update settings
+        if 'num_hands' in data:
+            num_hands = int(data['num_hands'])
+            if num_hands in [1, 2]:
+                current_settings['num_hands'] = num_hands
+        
+        if 'min_tracking_confidence' in data:
+            val = float(data['min_tracking_confidence'])
+            if 0 <= val <= 1:
+                current_settings['min_tracking_confidence'] = val
+        
+        if 'min_hand_detection_confidence' in data:
+            val = float(data['min_hand_detection_confidence'])
+            if 0 <= val <= 1:
+                current_settings['min_hand_detection_confidence'] = val
+        
+        if 'min_hand_presence_confidence' in data:
+            val = float(data['min_hand_presence_confidence'])
+            if 0 <= val <= 1:
+                current_settings['min_hand_presence_confidence'] = val
+        
+        # Flag for landmarker recreation
+        settings_changed = True
+        
+        return jsonify({
+            "success": True,
+            "message": "Settings updated",
+            "settings": current_settings
+        })
+    
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Error updating settings: {str(e)}"
+        }), 400
+
+
 if __name__ == '__main__':
     print("🚀 Starting Sign Language Translator Server...")
     print("📹 Video feed: http://localhost:5000/video_feed")
-    print("🎮 API endpoints: /capture, /quit, /status, /landmarks")
+    print("🎮 API endpoints: /capture, /quit, /status, /landmarks, /settings")
     app.run(host='0.0.0.0', port=5000, threaded=True)

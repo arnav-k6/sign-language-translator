@@ -1,0 +1,124 @@
+import { useNavigate } from 'react-router-dom'
+import './App.css'
+
+function HomePage() {
+    const navigate = useNavigate()
+
+    return (
+        <div className="homepage">
+            {/* Hero Section */}
+            <section className="hero">
+                <div className="hero-content">
+                    <div className="hero-badge">🚀 AI-Powered Hand Tracking</div>
+                    <h1 className="hero-title">
+                        Sign Language
+                        <span className="hero-highlight"> Translator</span>
+                    </h1>
+                    <p className="hero-description">
+                        Transform hand gestures into meaningful data using advanced computer vision.
+                        Our real-time tracking system captures and processes sign language movements
+                        to help build better accessibility tools.
+                    </p>
+                    <button className="hero-cta" onClick={() => navigate('/tracker')}>
+                        Get Started
+                        <span className="cta-arrow">→</span>
+                    </button>
+                </div>
+
+                <div className="hero-visual">
+                    <div className="floating-hand">🤟</div>
+                    <div className="orbit orbit-1">
+                        <div className="orbit-dot"></div>
+                    </div>
+                    <div className="orbit orbit-2">
+                        <div className="orbit-dot"></div>
+                    </div>
+                    <div className="orbit orbit-3">
+                        <div className="orbit-dot"></div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Features Section */}
+            <section className="features">
+                <h2 className="features-title">How It Works</h2>
+                <div className="features-grid">
+                    <div className="feature-card">
+                        <div className="feature-icon">📹</div>
+                        <h3>Real-Time Tracking</h3>
+                        <p>
+                            MediaPipe-powered hand detection tracks 21 landmarks per hand
+                            with sub-30ms latency for smooth, responsive tracking.
+                        </p>
+                    </div>
+
+                    <div className="feature-card">
+                        <div className="feature-icon">✋</div>
+                        <h3>Multi-Hand Support</h3>
+                        <p>
+                            Track up to 2 hands simultaneously, perfect for capturing
+                            complex two-handed gestures and sign language phrases.
+                        </p>
+                    </div>
+
+                    <div className="feature-card">
+                        <div className="feature-icon">💾</div>
+                        <h3>Data Collection</h3>
+                        <p>
+                            Buffer and save gesture sequences to CSV for machine learning
+                            training. Build your own sign language recognition models.
+                        </p>
+                    </div>
+
+                    <div className="feature-card">
+                        <div className="feature-icon">📊</div>
+                        <h3>Live Visualization</h3>
+                        <p>
+                            Monitor fingertip movements in real-time with dynamic graphs
+                            and visual feedback overlays on the video feed.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            {/* Tech Stack */}
+            <section className="tech-section">
+                <h2 className="tech-title">Built With</h2>
+                <div className="tech-grid">
+                    <div className="tech-item">
+                        <span className="tech-icon">🐍</span>
+                        <span className="tech-name">Python</span>
+                    </div>
+                    <div className="tech-item">
+                        <span className="tech-icon">🤖</span>
+                        <span className="tech-name">MediaPipe</span>
+                    </div>
+                    <div className="tech-item">
+                        <span className="tech-icon">⚛️</span>
+                        <span className="tech-name">React</span>
+                    </div>
+                    <div className="tech-item">
+                        <span className="tech-icon">🌐</span>
+                        <span className="tech-name">Flask</span>
+                    </div>
+                    <div className="tech-item">
+                        <span className="tech-icon">👁️</span>
+                        <span className="tech-name">OpenCV</span>
+                    </div>
+                </div>
+            </section>
+
+            {/* Footer CTA */}
+            <section className="footer-cta">
+                <h2>Ready to Start Tracking?</h2>
+                <p>Launch the tracker and begin capturing sign language gestures</p>
+                <button className="hero-cta" onClick={() => navigate('/tracker')}>
+                    Open Tracker
+                    <span className="cta-arrow">→</span>
+                </button>
+            </section>
+        </div>
+    )
+}
+
+export default HomePage

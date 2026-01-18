@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import HomePage from './HomePage'
+import Settings from './Settings'
 import './App.css'
 
 const API_URL = 'http://localhost:5000'
 
-function App() {
+function TrackerPage({ theme, onSettingsOpen }) {
+  const navigate = useNavigate()
   const [status, setStatus] = useState({
     buffer_level: 0,
     buffer_size: 200,
@@ -64,12 +68,12 @@ function App() {
     const width = canvas.width
     const height = canvas.height
 
-    // Clear
-    ctx.fillStyle = '#12121a'
+    // Clear - use theme-aware colors
+    ctx.fillStyle = theme === 'light' ? '#f1f5f9' : '#12121a'
     ctx.fillRect(0, 0, width, height)
 
     // Draw grid
-    ctx.strokeStyle = '#2a2a3a'
+    ctx.strokeStyle = theme === 'light' ? '#cbd5e1' : '#2a2a3a'
     ctx.lineWidth = 1
     for (let i = 0; i <= 4; i++) {
       const y = (height / 4) * i
@@ -101,12 +105,12 @@ function App() {
 
       ctx.stroke()
     })
-  }, [landmarkHistory])
+  }, [landmarkHistory, theme])
 
   // Handle capture
   const handleCapture = useCallback(async () => {
     if (isCapturing || status.buffer_level < status.buffer_size) return
-    
+
     setIsCapturing(true)
     try {
       const res = await fetch(`${API_URL}/capture`, { method: 'POST' })
@@ -135,15 +139,23 @@ function App() {
   const isBufferFull = status.buffer_level >= status.buffer_size
 
   return (
-    <div className="app">
+    <div className="tracker-page">
       {/* Header */}
       <header className="header">
-        <h1>🤟 Sign Language Translator</h1>
+        <div className="header-left">
+          <button className="back-btn" onClick={() => navigate('/')}>
+            ← Back
+          </button>
+          <h1>🤟 Sign Language Translator</h1>
+        </div>
         <div className="header-status">
           <div className="status-indicator">
             <span className={`status-dot ${status.is_running ? '' : 'offline'}`}></span>
             {status.is_running ? 'Connected' : 'Disconnected'}
           </div>
+          <button className="settings-btn" onClick={onSettingsOpen}>
+            ⚙️
+          </button>
         </div>
       </header>
 
@@ -262,6 +274,43 @@ function App() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function App() {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'dark'
+  })
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  return (
+    <div className="app">
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/tracker"
+          element={
+            <TrackerPage
+              theme={theme}
+              onSettingsOpen={() => setSettingsOpen(true)}
+            />
+          }
+        />
+      </Routes>
+
+      <Settings
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+      />
     </div>
   )
 }
