@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import time
+import threading
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from detect import get_os
@@ -40,6 +41,7 @@ TIP_IDS = [4, 8, 12, 16, 20]
 hand_data = []
 
 latest_result = None
+prev_key = -1  # For key debouncing
 
 
 # =============== CALLBACK =================
@@ -143,18 +145,26 @@ with HandLandmarker.create_from_options(options) as landmarker:
 
             # 3. SAVE LOGIC
             # 3. SAVE LOGIC
-        if key == ord('d'):
+        # Only trigger on key DOWN (not while held)
+        if key == ord('d') and prev_key != ord('d'):
             if len(gesture_buffer) == BUFFER_SIZE:
+                # Copy data for thread-safe writing
                 flattened = []
                 for landmark_frame in gesture_buffer:
                     flattened.extend(landmark_frame)
-
-                append_frame(flattened)
                 gesture_buffer.clear()
-                print("✅ Gesture saved (buffered)")
+                
+                # Save in background thread (no lag)
+                def save_async(data):
+                    append_frame(data)
+                    print("✅ Gesture saved (buffered)")
+                
+                threading.Thread(target=save_async, args=(flattened,), daemon=True).start()
             else:
                 print(
                     f"⚠️ Buffer not full: {len(gesture_buffer)}/{BUFFER_SIZE}")
+        
+        prev_key = key  # Track previous key for debouncing
 
         # Show
         cv2.imshow('Hand Tracking - Tasks API', frame)
