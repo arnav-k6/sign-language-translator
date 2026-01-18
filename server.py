@@ -15,6 +15,9 @@ from flask_cors import CORS
 from collections import deque
 from dataparser import append_frame
 from detect import get_os
+from video_transcriber import transcribe_video_file
+import tempfile
+import os as os_module
 
 app = Flask(__name__)
 CORS(app)
@@ -414,6 +417,38 @@ def quit_app():
     threading.Thread(target=shutdown, daemon=True).start()
     
     return jsonify({"success": True, "message": "Shutting down..."})
+
+
+@app.route('/api/transcribe', methods=['POST'])
+def transcribe_video():
+    """Transcribe an uploaded sign language video to text"""
+    if 'video' not in request.files:
+        return jsonify({"error": "No video file provided"}), 400
+    
+    video_file = request.files['video']
+    if video_file.filename == '':
+        return jsonify({"error": "No video file selected"}), 400
+    
+    # Save to temp file
+    temp_fd, temp_path = tempfile.mkstemp(suffix='.mp4')
+    try:
+        video_file.save(temp_path)
+        
+        # Get prediction mode from settings
+        mode = current_settings.get('prediction_mode', 'both')
+        
+        # Transcribe the video
+        result_text = transcribe_video_file(temp_path, mode=mode)
+        
+        return jsonify({"text": result_text, "success": True})
+    except Exception as e:
+        print(f"Transcription error: {e}")
+        return jsonify({"error": str(e), "text": ""}), 500
+    finally:
+        # Cleanup temp file
+        os_module.close(temp_fd)
+        if os_module.path.exists(temp_path):
+            os_module.unlink(temp_path)
 
 
 @app.route('/status')

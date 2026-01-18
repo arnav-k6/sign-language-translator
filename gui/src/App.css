@@ -62,22 +62,59 @@
 }
 
 .hero-cta {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 32px;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  gap: 9px;
+
+  padding: 14px 36px;
+  min-width: 420px;
+  margin-top: 20px;
+  background: linear-gradient(135deg,
+      var(--accent-primary) 0%,
+      var(--accent-secondary) 100%);
+
   color: white;
   font-size: 18px;
   font-weight: 600;
+
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
+
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px var(--glow-color);
+  box-shadow: 0 6px 24px var(--glow-color);
+}
+
+.hero-cta-2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  padding: 14px 36px;
+  min-width: 420px;
+  margin-top: 20px;
+  background: linear-gradient(135deg,
+      var(--accent-primary) 0%,
+      var(--accent-secondary) 100%);
+
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 24px var(--glow-color);
 }
 
 .hero-cta:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 40px var(--glow-color);
+}
+
+.hero-cta-2:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 40px var(--glow-color);
 }
@@ -963,6 +1000,26 @@
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ==================== TRANSCRIBER PAGE =================*/
+.video-preview {
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 12px;
+}
+
+.transcript-box {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.error-text {
+  color: #ef4444;
+  margin-top: 10px;
 }
 
 /* ==================== RESPONSIVE ==================== */

@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import './App.css'
-
 function HomePage() {
     const navigate = useNavigate()
 
@@ -20,7 +19,11 @@ function HomePage() {
                         to help build better accessibility tools.
                     </p>
                     <button className="hero-cta" onClick={() => navigate('/tracker')}>
-                        Get Started
+                        Get Started with Real-Time Translator
+                        <span className="cta-arrow">→</span>
+                    </button>
+                    <button className="hero-cta-2" onClick={() => navigate('/transcriber')}>
+                        Get Started with Video Transcriber
                         <span className="cta-arrow">→</span>
                     </button>
                 </div>

@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import HomePage from './HomePage'
 import Settings from './Settings'
 import './App.css'
-
+import Transcriber from './Transcriber'
 const API_URL = 'http://localhost:5000'
 
 function TrackerPage({ theme, onSettingsOpen }) {
@@ -391,6 +391,7 @@ function App() {
             />
           }
         />
+        <Route path="/transcriber" element={<Transcriber />} />
       </Routes>
 
       <Settings
