@@ -59,7 +59,7 @@ from model import SignModel
 import glob
 
 # ===== CONFIG =====
-SIGNS = ["hello", "me", "thankyou"]   # later you can add more signs here
+SIGNS = ["hello", "me", "thankyou", "no", "yes"]   # later you can add more signs here
 
 X, Y = [], []
 

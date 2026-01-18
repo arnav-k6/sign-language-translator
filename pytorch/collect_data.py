@@ -97,7 +97,7 @@ from mediapipe import Image, ImageFormat
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-SIGNS = ["thankyou"]
+SIGNS = ["yes"]
 
 os.makedirs("dataset", exist_ok=True)
 

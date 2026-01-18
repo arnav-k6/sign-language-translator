@@ -11,7 +11,7 @@ from model import SignModel
 
 
 
-SIGNS = ["hello", "me", "thankyou"]
+SIGNS = ["hello", "me", "thankyou", "no", "yes"]
 
 
 # ===== MediaPipe =====
