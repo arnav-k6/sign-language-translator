@@ -69,3 +69,5 @@ credentials.json
 secrets.json
 config.yaml
 requirements.txt
+
+hand_landmarker.task
