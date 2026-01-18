@@ -5,7 +5,7 @@ import Settings from './Settings'
 import './App.css'
 
 import Transcriber from './Transcriber'
-const API_URL = 'http://localhost:5000'
+const API_URL = 'http://localhost:5001'
 
 function TrackerPage({ theme, onSettingsOpen }) {
   const navigate = useNavigate()
