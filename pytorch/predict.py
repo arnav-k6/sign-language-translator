@@ -10,8 +10,8 @@ from mediapipe.tasks.python import vision
 from model import SignModel
 
 
-SIGNS = ["hello","father","mother","no",
-         "me","thankyou","help","what"]
+
+SIGNS = ["hello", "me", "thankyou"]
 
 
 # ===== MediaPipe =====
@@ -32,7 +32,7 @@ face_detector = vision.FaceLandmarker.create_from_options(face_options)
 
 
 # ===== Load YOUR model =====
-model = SignModel()
+model = SignModel(len(SIGNS))
 if torch.cuda.is_available():
     map_location = None # default
 else:
@@ -192,7 +192,7 @@ while True:
         current_text = "HELLO"
         # Reset counter to avoid rapid re-triggering if we want pulse, keeps it on if held
         # but here we want to EXTEND it.
-        hello_cooldown = 40 # Hold for ~1.3 seconds -> "output the hello longer"
+        hello_cooldown = 10 # Hold for ~1.3 seconds -> "output the hello longer"
 
 
     cv2.putText(frame, current_text,
