@@ -1,29 +1,53 @@
 import torch
-from torch.utils.data import DataLoader
-from dataset import GestureDataset
-from model import GestureNet
+import torch.nn as nn
+import numpy as np
+import glob
+import os
 
-def train():
+class TwoHandNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(126, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 26)
+        )
 
-    dataset = GestureDataset("gestures.csv")
-    loader = DataLoader(dataset, batch_size=8, shuffle=True)
+    def forward(self, x):
+        return self.net(x)
 
-    model = GestureNet(num_classes=5)
+X = []
+y = []
 
-    loss_fn = torch.nn.CrossEntropyLoss()
-    opt = torch.optim.Adam(model.parameters(), lr=0.001)
+for i, letter in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+    files = glob.glob(f"dataset/{letter}/*.csv")
 
-    for epoch in range(20):
+    for f in files:
+        data = np.loadtxt(f, delimiter=',')
+        mean_frame = data.reshape(-1,126).mean(axis=0)
 
-        for x, y in loader:
+        X.append(mean_frame)
+        y.append(i)
 
-            pred = model(x)
-            loss = loss_fn(pred, y)
+X = torch.tensor(X, dtype=torch.float32)
+y = torch.tensor(y)
 
-            opt.zero_grad()
-            loss.backward()
-            opt.step()
+model = TwoHandNet()
+opt = torch.optim.Adam(model.parameters(), lr=0.001)
+loss_fn = nn.CrossEntropyLoss()
 
-        print("epoch", epoch, "loss", loss.item())
+for epoch in range(200):
+    out = model(X)
+    loss = loss_fn(out, y)
 
-    torch.save(model.state_dict(), "gesture_model.pt")
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
+
+    if epoch % 20 == 0:
+        print("loss:", loss.item())
+
+torch.save(model.state_dict(), "two_hand_asl.pth")
+print("✅ MODEL SAVED")
