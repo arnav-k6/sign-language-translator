@@ -13,7 +13,13 @@ function TrackerPage({ theme, onSettingsOpen }) {
     buffer_size: 200,
     capture_count: 0,
     is_running: true,
-    has_hands: false
+    has_hands: false,
+    model_loaded: false
+  })
+  const [prediction, setPrediction] = useState({
+    letter: '',
+    confidence: 0,
+    mode: 'both'
   })
   const [landmarks, setLandmarks] = useState(null)
   const [isCapturing, setIsCapturing] = useState(false)
@@ -34,6 +40,22 @@ function TrackerPage({ theme, onSettingsOpen }) {
 
     fetchStatus()
     const interval = setInterval(fetchStatus, 500)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Fetch prediction periodically
+  useEffect(() => {
+    const fetchPrediction = async () => {
+      try {
+        const res = await fetch(`${API_URL}/prediction`)
+        const data = await res.json()
+        setPrediction(data)
+      } catch (err) {
+        // Silent fail
+      }
+    }
+
+    const interval = setInterval(fetchPrediction, 100) // 10fps
     return () => clearInterval(interval)
   }, [])
 
@@ -135,6 +157,20 @@ function TrackerPage({ theme, onSettingsOpen }) {
     }
   }
 
+  // Handle mode change
+  const handleModeChange = async (mode) => {
+    try {
+      await fetch(`${API_URL}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prediction_mode: mode })
+      })
+      setPrediction(prev => ({ ...prev, mode }))
+    } catch (err) {
+      console.error('Mode change failed:', err)
+    }
+  }
+
   const bufferPercent = (status.buffer_level / status.buffer_size) * 100
   const isBufferFull = status.buffer_level >= status.buffer_size
 
@@ -153,6 +189,11 @@ function TrackerPage({ theme, onSettingsOpen }) {
             <span className={`status-dot ${status.is_running ? '' : 'offline'}`}></span>
             {status.is_running ? 'Connected' : 'Disconnected'}
           </div>
+          {status.model_loaded && (
+            <div className="status-indicator ai-badge">
+              <span>🧠</span> AI Active
+            </div>
+          )}
           <button className="settings-btn" onClick={onSettingsOpen}>
             ⚙️
           </button>
@@ -194,6 +235,53 @@ function TrackerPage({ theme, onSettingsOpen }) {
 
         {/* Sidebar */}
         <div className="sidebar">
+          {/* Prediction Card */}
+          <div className="card prediction-card">
+            <div className="card-header">
+              <span className="card-title">🧠 AI Prediction</span>
+              <span className={`card-badge ${status.model_loaded ? 'active' : ''}`}>
+                {status.model_loaded ? 'ACTIVE' : 'LOADING'}
+              </span>
+            </div>
+
+            <div className="prediction-display">
+              {prediction.letter && prediction.confidence > 0.3 ? (
+                <>
+                  <div className="predicted-letter">{prediction.letter}</div>
+                  <div className="confidence-bar-container">
+                    <div
+                      className="confidence-bar-fill"
+                      style={{ width: `${prediction.confidence * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="confidence-text">
+                    {(prediction.confidence * 100).toFixed(0)}% confidence
+                  </div>
+                </>
+              ) : (
+                <div className="no-prediction">
+                  {status.has_hands ? 'Analyzing...' : 'Show a sign'}
+                </div>
+              )}
+            </div>
+
+            {/* Mode Selector */}
+            <div className="mode-selector">
+              <span className="mode-label">Mode:</span>
+              <div className="mode-buttons">
+                {['letters', 'numbers', 'both'].map(mode => (
+                  <button
+                    key={mode}
+                    className={`mode-btn ${prediction.mode === mode ? 'active' : ''}`}
+                    onClick={() => handleModeChange(mode)}
+                  >
+                    {mode === 'letters' ? 'A-Z' : mode === 'numbers' ? '0-9' : 'All'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Status Card */}
           <div className="card">
             <div className="card-header">

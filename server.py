@@ -1,6 +1,6 @@
 """
 Flask server for Sign Language Translator GUI
-Provides video streaming and API endpoints for the React frontend
+Provides video streaming, AI predictions, and API endpoints for the React frontend
 """
 
 import cv2
@@ -8,6 +8,8 @@ import mediapipe as mp
 import numpy as np
 import time
 import threading
+import torch
+import joblib
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 from collections import deque
@@ -24,13 +26,16 @@ capture_count = 0
 is_running = True
 
 model_path = 'hand_landmarker.task'
+MODEL_FILE = 'gesture_model_pytorch.pth'
+SCALER_FILE = 'gesture_scaler.pkl'
 
 # Current settings (configurable via API)
 current_settings = {
     'num_hands': 2,
     'min_tracking_confidence': 0.4,
     'min_hand_detection_confidence': 0.4,
-    'min_hand_presence_confidence': 0.6
+    'min_hand_presence_confidence': 0.6,
+    'prediction_mode': 'both'  # 'letters', 'numbers', or 'both'
 }
 
 BaseOptions = mp.tasks.BaseOptions
@@ -50,11 +55,141 @@ HAND_CONNECTIONS = [
 ]
 
 TIP_IDS = [4, 8, 12, 16, 20]
+NUM_LANDMARKS = 21
+NUM_COORDS = 3
+
 latest_result = None
 current_landmarks = []  # For API access
+current_prediction = {"letter": "", "confidence": 0.0}  # Store latest prediction
 lock = threading.Lock()
 landmarker = None
 settings_changed = False
+
+
+# =============== NEURAL NETWORK =================
+class SignLanguageClassifier(torch.nn.Module):
+    def __init__(self, input_size, hidden1, hidden2, num_classes):
+        super(SignLanguageClassifier, self).__init__()
+        self.layer1 = torch.nn.Linear(input_size, hidden1)
+        self.layer2 = torch.nn.Linear(hidden1, hidden2)
+        self.layer3 = torch.nn.Linear(hidden2, num_classes)
+        self.relu = torch.nn.ReLU()
+        self.dropout = torch.nn.Dropout(0.3)
+        self.bn1 = torch.nn.BatchNorm1d(hidden1)
+        self.bn2 = torch.nn.BatchNorm1d(hidden2)
+    
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.layer2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.layer3(x)
+        return x
+
+
+# =============== MODEL LOADING =================
+ml_model = None
+scaler = None
+classes = None
+model_loaded = False
+
+def load_ml_model():
+    """Load the trained PyTorch model and scaler"""
+    global ml_model, scaler, classes, model_loaded
+    
+    try:
+        print("🧠 Loading AI model...")
+        
+        # Load model checkpoint
+        checkpoint = torch.load(MODEL_FILE, map_location='cpu', weights_only=False)
+        
+        # Recreate the model architecture
+        ml_model = SignLanguageClassifier(
+            checkpoint['input_size'],
+            checkpoint['hidden1'],
+            checkpoint['hidden2'],
+            checkpoint['num_classes']
+        )
+        ml_model.load_state_dict(checkpoint['model_state_dict'])
+        ml_model.eval()  # Set to evaluation mode
+        
+        # Get class labels
+        classes = checkpoint['label_encoder_classes']
+        
+        # Load scaler
+        scaler = joblib.load(SCALER_FILE)
+        
+        model_loaded = True
+        print(f"  ✅ Model loaded successfully")
+        print(f"  📚 Classes: {list(classes)}")
+        
+    except Exception as e:
+        print(f"  ❌ Failed to load model: {e}")
+        model_loaded = False
+
+
+def predict_gesture(left_features, right_features):
+    """Make a prediction from landmark features"""
+    global current_prediction
+    
+    if not model_loaded:
+        return "", 0.0
+    
+    try:
+        mode = current_settings.get('prediction_mode', 'both')
+        
+        # Combine features (left hand first, then right - matching training order)
+        features = np.array(left_features + right_features).reshape(1, -1)
+        
+        # Scale features (same as during training)
+        features_scaled = scaler.transform(features)
+        
+        # Convert to tensor
+        features_tensor = torch.FloatTensor(features_scaled)
+        
+        # Predict
+        with torch.no_grad():
+            outputs = ml_model(features_tensor)
+            probabilities = torch.nn.functional.softmax(outputs, dim=1)
+            
+            # Filter by mode
+            if mode == 'letters':
+                valid_indices = [i for i, c in enumerate(classes) if c.isalpha()]
+            elif mode == 'numbers':
+                valid_indices = [i for i, c in enumerate(classes) if c.isdigit()]
+            else:
+                valid_indices = list(range(len(classes)))
+            
+            if not valid_indices:
+                return "", 0.0
+            
+            # Get best prediction among valid classes
+            filtered_probs = probabilities[0, valid_indices]
+            best_idx = filtered_probs.argmax().item()
+            confidence_value = filtered_probs[best_idx].item()
+            predicted_class = classes[valid_indices[best_idx]]
+        
+        # Update current prediction
+        with lock:
+            current_prediction = {
+                "letter": str(predicted_class),
+                "confidence": float(confidence_value)
+            }
+        
+        return predicted_class, confidence_value
+        
+    except Exception as e:
+        print(f"Prediction error: {e}")
+        return "", 0.0
+
+
+def get_empty_hand():
+    """Return zeros for undetected hand"""
+    return [0.0] * (NUM_LANDMARKS * NUM_COORDS)
 
 
 # =============== CALLBACK =================
@@ -80,6 +215,9 @@ def create_landmarker():
     return HandLandmarker.create_from_options(options)
 
 
+# Load AI model at startup
+load_ml_model()
+
 # Create initial landmarker
 landmarker = create_landmarker()
 
@@ -95,7 +233,7 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
 def generate_frames():
     """Generator for MJPEG video stream"""
-    global latest_result, current_landmarks, is_running, landmarker, settings_changed
+    global latest_result, current_landmarks, is_running, landmarker, settings_changed, current_prediction
     
     while is_running and cap.isOpened():
         # Check if settings changed and recreate landmarker
@@ -124,21 +262,31 @@ def generate_frames():
         
         # Process landmarks
         frame_landmarks = []
+        left_features = get_empty_hand()
+        right_features = get_empty_hand()
         
         if latest_result and latest_result.hand_landmarks:
-            hands_found = {"Right": None, "Left": None}
-            
+            # Use detection order (idx 0 = left, idx 1 = right) to match training data collection
+            # This matches data_collector.py which assigned first detected hand to left_features
             for idx, hand_lms in enumerate(latest_result.hand_landmarks):
-                label = latest_result.handedness[idx][0].category_name
-                hands_found[label] = hand_lms
-            
-            # Build fixed-order landmark array
-            for side in ["Right", "Left"]:
-                if hands_found[side]:
-                    for lm in hands_found[side]:
-                        frame_landmarks.extend([lm.x, lm.y, lm.z])
+                features = []
+                for lm in hand_lms:
+                    features.extend([lm.x, lm.y, lm.z])
+                    frame_landmarks.extend([lm.x, lm.y, lm.z])
+                
+                # Match data_collector.py: idx 0 = left, idx 1 = right
+                if idx == 0:
+                    left_features = features
                 else:
-                    frame_landmarks.extend([0.0] * 63)
+                    right_features = features
+            
+            # Pad with zeros if only one hand detected
+            if len(latest_result.hand_landmarks) == 1:
+                frame_landmarks.extend([0.0] * 63)
+            
+            # Make prediction if model is loaded
+            if model_loaded:
+                predict_gesture(left_features, right_features)
             
             # Draw on frame
             for hand_landmarks in latest_result.hand_landmarks:
@@ -161,6 +309,26 @@ def generate_frames():
                         color = (255, 100, 100)
                         radius = 8
                     cv2.circle(frame, (x, y), radius, color, -1)
+            
+            # Draw prediction on frame
+            with lock:
+                pred = current_prediction.copy()
+            
+            if pred["letter"] and pred["confidence"] > 0.3:
+                # Large letter display
+                cv2.putText(frame, pred["letter"], (50, 120), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 4, (0, 255, 0), 8)
+                
+                # Confidence bar
+                bar_width = int(pred["confidence"] * 250)
+                cv2.rectangle(frame, (50, 150), (50 + bar_width, 175), (0, 255, 0), -1)
+                cv2.rectangle(frame, (50, 150), (300, 175), (255, 255, 255), 2)
+                cv2.putText(frame, f"{pred['confidence']:.0%}", (310, 170),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        else:
+            # No hands - clear prediction
+            with lock:
+                current_prediction = {"letter": "", "confidence": 0.0}
         
         # Update buffer and current landmarks
         if len(frame_landmarks) == 126:
@@ -185,6 +353,18 @@ def video_feed():
     """MJPEG video stream"""
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/prediction')
+def prediction():
+    """Get current AI prediction"""
+    with lock:
+        return jsonify({
+            "letter": current_prediction["letter"],
+            "confidence": current_prediction["confidence"],
+            "model_loaded": model_loaded,
+            "mode": current_settings.get('prediction_mode', 'both')
+        })
 
 
 @app.route('/capture', methods=['POST'])
@@ -245,7 +425,8 @@ def status():
             "buffer_size": BUFFER_SIZE,
             "capture_count": capture_count,
             "is_running": is_running,
-            "has_hands": len(current_landmarks) == 126
+            "has_hands": len(current_landmarks) == 126,
+            "model_loaded": model_loaded
         })
 
 
@@ -306,6 +487,11 @@ def update_settings():
             if 0 <= val <= 1:
                 current_settings['min_hand_presence_confidence'] = val
         
+        if 'prediction_mode' in data:
+            mode = data['prediction_mode']
+            if mode in ['letters', 'numbers', 'both']:
+                current_settings['prediction_mode'] = mode
+        
         # Flag for landmarker recreation
         settings_changed = True
         
@@ -325,5 +511,5 @@ def update_settings():
 if __name__ == '__main__':
     print("🚀 Starting Sign Language Translator Server...")
     print("📹 Video feed: http://localhost:5000/video_feed")
-    print("🎮 API endpoints: /capture, /quit, /status, /landmarks, /settings")
+    print("🎮 API endpoints: /capture, /quit, /status, /landmarks, /settings, /prediction")
     app.run(host='0.0.0.0', port=5000, threaded=True)
