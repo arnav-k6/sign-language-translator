@@ -512,4 +512,4 @@ if __name__ == '__main__':
     print("🚀 Starting Sign Language Translator Server...")
     print("📹 Video feed: http://localhost:5000/video_feed")
     print("🎮 API endpoints: /capture, /quit, /status, /landmarks, /settings, /prediction")
-    app.run(host='0.0.0.0', port=5000, threaded=True)
+    app.run(host='0.0.0.0', port=5001, threaded=True)
