@@ -83,14 +83,26 @@ with HandLandmarker.create_from_options(options) as landmarker:
         if latest_result and latest_result.hand_landmarks:
 
             current_frame_landmarks = []
-            first_hand = latest_result.hand_landmarks[0]
-            
-            for lm in first_hand:
-                current_frame_landmarks.extend([lm.x, lm.y, lm.z])
+            hands_found = {"Right": None, "Left": None}
+
+            for idx, hand_lms in enumerate(latest_result.hand_landmarks):
+                # Get the label (Right or Left)
+                label = latest_result.handedness[idx][0].category_name
+                hands_found[label] = hand_lms
+
+            # Now build the array in a FIXED order
+            # If a hand is missing, we fill it with 0s so the array size is always 126
+            for side in ["Right", "Left"]:
+                if hands_found[side]:
+                    for lm in hands_found[side]:
+                        current_frame_landmarks.extend([lm.x, lm.y, lm.z])
+                else:
+                    # Fill with 63 zeros if the hand isn't in frame
+                    current_frame_landmarks.extend([0.0] * 63)
 
             # 3. SAVE LOGIC
             if key == ord('d'):
-                if len(current_frame_landmarks) == 63*numberOfHands:
+                if len(current_frame_landmarks) == 126:
                     with open("dataset.txt", "a") as f:
                         # Convert to string and strip brackets for cleaner data
                         data_str = ",".join(map(str, current_frame_landmarks))
