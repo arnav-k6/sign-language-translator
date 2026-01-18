@@ -11,7 +11,7 @@ from dataparser import append_frame
 from collections import deque
 from dataparser import append_frame
 
-BUFFER_SIZE = 20
+BUFFER_SIZE = 200
 gesture_buffer = deque(maxlen=BUFFER_SIZE)
 
 
@@ -112,25 +112,7 @@ with HandLandmarker.create_from_options(options) as landmarker:
                     # Fill with 63 zeros if the hand isn't in frame
                     current_frame_landmarks.extend([0.0] * 63)
 
-        if len(current_frame_landmarks) == 126:
-            gesture_buffer.append(current_frame_landmarks)
-
-            # 3. SAVE LOGIC
-            # 3. SAVE LOGIC
-        if key == ord('d'):
-            if len(gesture_buffer) == BUFFER_SIZE:
-                flattened = []
-                for landmark_frame in gesture_buffer:
-                    flattened.extend(landmark_frame)
-
-                append_frame(flattened)
-                print("✅ Gesture saved (buffered)")
-            else:
-                print(
-                    f"⚠️ Buffer not full: {len(gesture_buffer)}/{BUFFER_SIZE}")
-
             for hand_landmarks in latest_result.hand_landmarks:
-                print("DEBUG frame type:", type(frame))
                 h, w, _ = frame.shape
 
                 # ---- 1. Draw skeleton ----
@@ -155,6 +137,24 @@ with HandLandmarker.create_from_options(options) as landmarker:
                         radius = 7
 
                     cv2.circle(frame, (x, y), radius, color, -1)
+
+        if len(current_frame_landmarks) == 126:
+            gesture_buffer.append(current_frame_landmarks)
+
+            # 3. SAVE LOGIC
+            # 3. SAVE LOGIC
+        if key == ord('d'):
+            if len(gesture_buffer) == BUFFER_SIZE:
+                flattened = []
+                for landmark_frame in gesture_buffer:
+                    flattened.extend(landmark_frame)
+
+                append_frame(flattened)
+                gesture_buffer.clear()
+                print("✅ Gesture saved (buffered)")
+            else:
+                print(
+                    f"⚠️ Buffer not full: {len(gesture_buffer)}/{BUFFER_SIZE}")
 
         # Show
         cv2.imshow('Hand Tracking - Tasks API', frame)

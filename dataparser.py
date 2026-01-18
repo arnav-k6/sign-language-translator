@@ -3,7 +3,7 @@ import os
 
 CSV_PATH = "dataset.csv"
 
-BUFFER_SIZE = 20
+BUFFER_SIZE = 200
 EXPECTED_VALUES = 126 * BUFFER_SIZE
 
 
