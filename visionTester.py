@@ -81,19 +81,22 @@ with HandLandmarker.create_from_options(options) as landmarker:
         # ============ DRAWING ============
         if latest_result and latest_result.hand_landmarks:
 
+            current_frame_landmarks = []
             first_hand = latest_result.hand_landmarks[0]
-    
+            
             for lm in first_hand:
-                hand_data.append(lm.x)
-                hand_data.append(lm.y)
-                hand_data.append(lm.z)
+                current_frame_landmarks.extend([lm.x, lm.y, lm.z])
 
-
-            if(len(hand_data) == 63):
-                if key == ord('d'):
+            # 3. SAVE LOGIC
+            if key == ord('d'):
+                if len(current_frame_landmarks) == 63:
                     with open("dataset.txt", "a") as f:
-                        f.write(str(hand_data) + "\n")
-                    hand_data = []
+                        # Convert to string and strip brackets for cleaner data
+                        data_str = ",".join(map(str, current_frame_landmarks))
+                        f.write(data_str + "\n")
+                    print("✅ Data saved to dataset.txt")
+                else:
+                    print(f"⚠️ Error: Only found {len(current_frame_landmarks)//3} landmarks")
 
             for hand_landmarks in latest_result.hand_landmarks:
 
