@@ -6,3 +6,14 @@ git add .
 git reset requirements.txt   # unstage only this file
 git commit -m "Push without requirements"
 git push
+
+
+Put data in a Dataset
+
+Wrap it in a DataLoader
+
+Feed batches to a model
+
+Compute loss
+
+Backprop with optimizer
