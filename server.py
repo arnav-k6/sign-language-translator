@@ -3,21 +3,22 @@ Flask server for Sign Language Translator GUI
 Provides video streaming, AI predictions, and API endpoints for the React frontend
 """
 
-import cv2
-import mediapipe as mp
-import numpy as np
+import cv2  # type: ignore
+import mediapipe as mp  # type: ignore
+import numpy as np  # type: ignore
 import time
 import threading
-import torch
-import joblib
-from flask import Flask, Response, jsonify, request
-from flask_cors import CORS
+import torch  # type: ignore
+import joblib  # type: ignore
+from flask import Flask, Response, jsonify, request  # type: ignore
+from flask_cors import CORS  # type: ignore
 from collections import deque
-from dataparser import append_frame
-from detect import get_os
-from video_transcriber import transcribe_video_file
+from dataparser import append_frame  # type: ignore
+from detect import get_os  # type: ignore
+from video_transcriber import transcribe_video_file  # type: ignore
 import tempfile
 import os as os_module
+
 
 app = Flask(__name__)
 CORS(app)
@@ -138,11 +139,11 @@ def load_ml_model():
 
 
 def predict_gesture(left_features, right_features):
-    """Make a prediction from landmark features"""
+    """Make a prediction from landmark features - returns top 3 predictions"""
     global current_prediction
     
     if not model_loaded:
-        return "", 0.0
+        return "", 0.0, []
     
     try:
         mode = current_settings.get('prediction_mode', 'both')
@@ -151,45 +152,58 @@ def predict_gesture(left_features, right_features):
         features = np.array(left_features + right_features).reshape(1, -1)
         
         # Scale features (same as during training)
-        features_scaled = scaler.transform(features)
+        features_scaled = scaler.transform(features)  # type: ignore
         
         # Convert to tensor
         features_tensor = torch.FloatTensor(features_scaled)
         
         # Predict
         with torch.no_grad():
-            outputs = ml_model(features_tensor)
+            outputs = ml_model(features_tensor)  # type: ignore
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
             
             # Filter by mode
             if mode == 'letters':
-                valid_indices = [i for i, c in enumerate(classes) if c.isalpha()]
+                valid_indices = [i for i, c in enumerate(classes) if c.isalpha()]  # type: ignore
             elif mode == 'numbers':
-                valid_indices = [i for i, c in enumerate(classes) if c.isdigit()]
+                valid_indices = [i for i, c in enumerate(classes) if c.isdigit()]  # type: ignore
             else:
-                valid_indices = list(range(len(classes)))
+                valid_indices = list(range(len(classes)))  # type: ignore
             
             if not valid_indices:
-                return "", 0.0
+                return "", 0.0, []
             
-            # Get best prediction among valid classes
+            # Get filtered probabilities
             filtered_probs = probabilities[0, valid_indices]
-            best_idx = filtered_probs.argmax().item()
-            confidence_value = filtered_probs[best_idx].item()
-            predicted_class = classes[valid_indices[best_idx]]
+            
+            # Get top 3 predictions
+            top_k = min(3, len(valid_indices))
+            top_values, top_indices = torch.topk(filtered_probs, top_k)
+            
+            top_predictions = []
+            for i in range(top_k):
+                idx = top_indices[i].item()
+                conf = top_values[i].item()
+                letter = classes[valid_indices[idx]]  # type: ignore
+                top_predictions.append({"letter": str(letter), "confidence": float(conf)})
+            
+            # Best prediction
+            best_letter = top_predictions[0]["letter"] if top_predictions else ""
+            best_confidence = top_predictions[0]["confidence"] if top_predictions else 0.0
         
-        # Update current prediction
+        # Update current prediction with top 3
         with lock:
             current_prediction = {
-                "letter": str(predicted_class),
-                "confidence": float(confidence_value)
+                "letter": best_letter,
+                "confidence": best_confidence,
+                "top3": top_predictions
             }
         
-        return predicted_class, confidence_value
+        return best_letter, best_confidence, top_predictions
         
     except Exception as e:
         print(f"Prediction error: {e}")
-        return "", 0.0
+        return "", 0.0, []
 
 
 def get_empty_hand():
@@ -299,8 +313,8 @@ def generate_frames():
                 
                 # Draw skeleton
                 for c in HAND_CONNECTIONS:
-                    start = hand_landmarks[c[0]]
-                    end = hand_landmarks[c[1]]
+                    start = hand_landmarks[c[0]]  # type: ignore
+                    end = hand_landmarks[c[1]]  # type: ignore
                     x1, y1 = int(start.x * w), int(start.y * h)
                     x2, y2 = int(end.x * w), int(end.y * h)
                     cv2.line(frame, (x1, y1), (x2, y2), (0, 200, 255), 2)
@@ -315,21 +329,7 @@ def generate_frames():
                         radius = 8
                     cv2.circle(frame, (x, y), radius, color, -1)
             
-            # Draw prediction on frame
-            with lock:
-                pred = current_prediction.copy()
-            
-            if pred["letter"] and pred["confidence"] > 0.3:
-                # Large letter display
-                cv2.putText(frame, pred["letter"], (50, 120), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 4, (0, 255, 0), 8)
-                
-                # Confidence bar
-                bar_width = int(pred["confidence"] * 250)
-                cv2.rectangle(frame, (50, 150), (50 + bar_width, 175), (0, 255, 0), -1)
-                cv2.rectangle(frame, (50, 150), (300, 175), (255, 255, 255), 2)
-                cv2.putText(frame, f"{pred['confidence']:.0%}", (310, 170),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            # Prediction is now shown via React AR overlay, no need to draw on frame
         else:
             # No hands - clear prediction
             with lock:
@@ -362,11 +362,22 @@ def video_feed():
 
 @app.route('/prediction')
 def prediction():
-    """Get current AI prediction"""
+    """Get current AI prediction with top 3 and hand position"""
     with lock:
+        # Get hand position for AR overlay (use wrist landmark - index 0)
+        hand_position = None
+        if len(current_landmarks) >= 3:
+            # First hand wrist position (normalized 0-1)
+            hand_position = {
+                "x": current_landmarks[0],  # wrist x
+                "y": current_landmarks[1]   # wrist y
+            }
+        
         return jsonify({
-            "letter": current_prediction["letter"],
-            "confidence": current_prediction["confidence"],
+            "letter": current_prediction.get("letter", ""),
+            "confidence": current_prediction.get("confidence", 0.0),
+            "top3": current_prediction.get("top3", []),
+            "hand_position": hand_position,
             "model_loaded": model_loaded,
             "mode": current_settings.get('prediction_mode', 'both')
         })
@@ -389,7 +400,7 @@ def capture():
                 append_frame(data)
             
             threading.Thread(target=save_async, args=(flattened,), daemon=True).start()
-            capture_count += 1
+            capture_count += 1  # type: ignore
             
             return jsonify({
                 "success": True,

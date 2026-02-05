@@ -24,12 +24,31 @@ function TrackerPage({ theme, onSettingsOpen }) {
   const [prediction, setPrediction] = useState({
     letter: '',
     confidence: 0,
-    mode: 'both'
+    mode: 'both',
+    top3: [],
+    hand_position: null
   })
   const [landmarks, setLandmarks] = useState(null)
   const [isCapturing, setIsCapturing] = useState(false)
   const [landmarkHistory, setLandmarkHistory] = useState([])
+  const [arOverlayEnabled, setArOverlayEnabled] = useState(true)
   const canvasRef = useRef(null)
+  const videoContainerRef = useRef(null)
+
+  // Sentence Builder state
+  const [sentence, setSentence] = useState('')
+  const [lastAddedLetter, setLastAddedLetter] = useState('')
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Prediction history for confusion matrix
+  const [predictionHistory, setPredictionHistory] = useState([])
+
+  // Auto-add tracking
+  const stableLetterRef = useRef('')
+  const stableTimerRef = useRef(null)
+  const AUTO_ADD_DELAY = 2000 // 2 seconds
 
   // Fetch status periodically
   useEffect(() => {
@@ -63,6 +82,55 @@ function TrackerPage({ theme, onSettingsOpen }) {
     const interval = setInterval(fetchPrediction, 100) // 10fps
     return () => clearInterval(interval)
   }, [])
+
+  // Auto-add letter after 2 seconds of stable prediction
+  useEffect(() => {
+    const currentLetter = prediction.letter
+    const confidence = prediction.confidence
+
+    // Only consider high-confidence predictions
+    if (!currentLetter || confidence < 0.5) {
+      // Clear timer if no valid prediction
+      if (stableTimerRef.current) {
+        clearTimeout(stableTimerRef.current)
+        stableTimerRef.current = null
+      }
+      stableLetterRef.current = ''
+      return
+    }
+
+    // If same letter, don't restart timer
+    if (currentLetter === stableLetterRef.current) {
+      return // Keep existing timer running
+    }
+
+    // New letter - reset and start timer
+    stableLetterRef.current = currentLetter
+
+    // Clear existing timer
+    if (stableTimerRef.current) {
+      clearTimeout(stableTimerRef.current)
+    }
+
+    // Start new timer
+    stableTimerRef.current = setTimeout(() => {
+      // Add letter automatically after 2 seconds
+      const letterToAdd = String(currentLetter)
+      console.log('Auto-adding letter after 2s:', letterToAdd)
+      setSentence(prev => prev + letterToAdd)
+      setLastAddedLetter(letterToAdd)
+      setPredictionHistory(prev => [...prev.slice(-99), {
+        letter: letterToAdd,
+        confidence: confidence,
+        timestamp: Date.now()
+      }])
+      // Reset so it can auto-add again if held longer
+      stableLetterRef.current = ''
+      stableTimerRef.current = null
+    }, AUTO_ADD_DELAY)
+
+    // Don't clear timer in cleanup - we manage it manually
+  }, [prediction.letter, prediction.confidence])
 
   // Fetch landmarks for graph
   useEffect(() => {
@@ -176,6 +244,121 @@ function TrackerPage({ theme, onSettingsOpen }) {
     }
   }
 
+  // Fullscreen toggle function (defined before useEffect that uses it)
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      videoContainerRef.current?.requestFullscreen()
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen()
+      setIsFullscreen(false)
+    }
+  }, [])
+
+  // Copy sentence to clipboard
+  const copySentence = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(sentence)
+    } catch (err) {
+      console.error('Copy failed:', err)
+    }
+  }, [sentence])
+
+  // Add letter to sentence helper
+  const addLetterToSentence = useCallback(() => {
+    console.log('addLetterToSentence called:', { letter: prediction.letter, confidence: prediction.confidence })
+    if (prediction.letter && prediction.confidence > 0.3) {
+      const letterToAdd = String(prediction.letter)
+      console.log('Adding letter:', letterToAdd, 'charCode:', letterToAdd.charCodeAt(0))
+      setSentence(prev => {
+        const newSentence = prev + letterToAdd
+        console.log('New sentence:', newSentence)
+        return newSentence
+      })
+      setLastAddedLetter(letterToAdd)
+      setPredictionHistory(prev => [...prev.slice(-99), {
+        letter: letterToAdd,
+        confidence: prediction.confidence,
+        timestamp: Date.now()
+      }])
+    }
+  }, [prediction.letter, prediction.confidence])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger shortcuts if user is typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+
+      switch (e.key.toLowerCase()) {
+        case 'c':
+          // Capture gesture
+          if (status.buffer_level >= status.buffer_size && !isCapturing) {
+            handleCapture()
+          }
+          break
+        case 'q':
+          // Quit application
+          handleQuit()
+          break
+        case '1':
+          // Switch to letters mode
+          handleModeChange('letters')
+          break
+        case '2':
+          // Switch to numbers mode
+          handleModeChange('numbers')
+          break
+        case '3':
+          // Switch to both mode
+          handleModeChange('both')
+          break
+        case 'a':
+          // Toggle AR overlay
+          setArOverlayEnabled(prev => !prev)
+          break
+        case ' ':
+          // Add space to sentence
+          e.preventDefault()
+          setSentence(prev => prev + ' ')
+          break
+        case 'enter':
+          // Add current prediction to sentence
+          e.preventDefault()
+          addLetterToSentence()
+          break
+        case 'backspace':
+          // Remove last character from sentence
+          e.preventDefault()
+          setSentence(prev => prev.slice(0, -1))
+          break
+        case 'x':
+          // Clear sentence
+          setSentence('')
+          setLastAddedLetter('')
+          break
+        case 'f':
+          // Toggle fullscreen
+          toggleFullscreen()
+          break
+        default:
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [status.buffer_level, status.buffer_size, isCapturing, handleCapture, prediction, toggleFullscreen, addLetterToSentence])
+
+  // Listen for fullscreen change
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
   const bufferPercent = (status.buffer_level / status.buffer_size) * 100
   const isBufferFull = status.buffer_level >= status.buffer_size
 
@@ -209,7 +392,7 @@ function TrackerPage({ theme, onSettingsOpen }) {
       <div className="main-content">
         {/* Video Section */}
         <div className="video-section">
-          <div className="video-container">
+          <div className={`video-container ${isFullscreen ? 'fullscreen' : ''}`} ref={videoContainerRef}>
             <img
               className="video-feed"
               src={`${API_URL}/video_feed`}
@@ -221,6 +404,47 @@ function TrackerPage({ theme, onSettingsOpen }) {
                 <span className="overlay-badge recording">TRACKING</span>
               )}
             </div>
+
+            {/* Fullscreen button - positioned bottom right of video */}
+            <button className="fullscreen-btn" onClick={toggleFullscreen}>
+              {isFullscreen ? '⛶' : '⛶'}
+            </button>
+
+            {/* AR Prediction Overlay - Moves with hand, positioned to side */}
+            {arOverlayEnabled && prediction.letter && prediction.confidence > 0.3 && (() => {
+              const hp = prediction.hand_position
+              if (!hp) return (
+                <div className="ar-prediction-overlay">
+                  <div className="ar-letter">{prediction.letter}</div>
+                  <div className="ar-confidence">
+                    {(prediction.confidence * 100).toFixed(0)}%
+                  </div>
+                </div>
+              )
+
+              // Position overlay to the LEFT of hand if hand is on right side, and vice versa
+              const handOnRightSide = hp.x > 0.5
+              const xOffset = handOnRightSide ? -12 : 12 // percentage offset from hand (closer)
+              const xPos = Math.min(Math.max((hp.x * 100) + xOffset, 8), 92)
+              const yPos = Math.min(Math.max(hp.y * 100, 10), 85)
+
+              return (
+                <div
+                  className="ar-prediction-overlay"
+                  style={{
+                    left: `${xPos}%`,
+                    top: `${yPos}%`,
+                    transform: handOnRightSide ? 'translate(-100%, -50%)' : 'translate(0%, -50%)',
+                    right: 'auto'
+                  }}
+                >
+                  <div className="ar-letter">{prediction.letter}</div>
+                  <div className="ar-confidence">
+                    {(prediction.confidence * 100).toFixed(0)}%
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Control Panel */}
@@ -250,19 +474,24 @@ function TrackerPage({ theme, onSettingsOpen }) {
             </div>
 
             <div className="prediction-display">
-              {prediction.letter && prediction.confidence > 0.3 ? (
-                <>
-                  <div className="predicted-letter">{prediction.letter}</div>
-                  <div className="confidence-bar-container">
-                    <div
-                      className="confidence-bar-fill"
-                      style={{ width: `${prediction.confidence * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="confidence-text">
-                    {(prediction.confidence * 100).toFixed(0)}% confidence
-                  </div>
-                </>
+              {prediction.top3 && prediction.top3.length > 0 ? (
+                <div className="top3-predictions">
+                  {prediction.top3.map((pred, index) => (
+                    <div key={index} className={`top3-item ${index === 0 ? 'primary' : ''}`}>
+                      <div className="top3-rank">#{index + 1}</div>
+                      <div className="top3-letter">{pred.letter}</div>
+                      <div className="top3-bar-container">
+                        <div
+                          className="top3-bar-fill"
+                          style={{ width: `${pred.confidence * 100}%` }}
+                        ></div>
+                      </div>
+                      <div className="top3-confidence">
+                        {(pred.confidence * 100).toFixed(0)}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="no-prediction">
                   {status.has_hands ? 'Analyzing...' : 'Show a sign'}
@@ -287,42 +516,53 @@ function TrackerPage({ theme, onSettingsOpen }) {
             </div>
           </div>
 
-          {/* Status Card */}
-          <div className="card">
+          {/* Sentence Builder - moved to second position */}
+          <div className="card sentence-builder-card">
             <div className="card-header">
-              <span className="card-title">Buffer Status</span>
-              <span className="card-badge">{isBufferFull ? 'READY' : 'FILLING'}</span>
+              <span className="card-title">📝 Sentence Builder</span>
+              <span className="card-badge">{sentence.length} chars</span>
             </div>
 
-            <div className="buffer-progress">
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${bufferPercent}%` }}
-                ></div>
-              </div>
-              <div className="progress-text">
-                <span>{status.buffer_level} frames</span>
-                <span>{status.buffer_size} needed</span>
-              </div>
+            <div className="sentence-display">
+              {sentence || <span className="placeholder">Press Enter to add letters...</span>}
+              {lastAddedLetter && <span className="last-added">+{lastAddedLetter}</span>}
             </div>
 
-            <div className="stats-grid">
-              <div className="stat-item">
-                <div className="stat-value">{status.capture_count}</div>
-                <div className="stat-label">Captures</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">{Math.round(bufferPercent)}%</div>
-                <div className="stat-label">Buffer</div>
-              </div>
+            <div className="sentence-controls">
+              <button
+                className="btn btn-small btn-primary"
+                onClick={addLetterToSentence}
+                disabled={!prediction.letter || prediction.confidence <= 0.3}
+              >
+                + Add Letter
+              </button>
+              <button
+                className="btn btn-small"
+                onClick={() => setSentence(prev => prev + ' ')}
+              >
+                Space
+              </button>
+              <button
+                className="btn btn-small"
+                onClick={() => setSentence('')}
+                disabled={!sentence}
+              >
+                Clear
+              </button>
+              <button
+                className="btn btn-small"
+                onClick={copySentence}
+                disabled={!sentence}
+              >
+                📋 Copy
+              </button>
             </div>
 
-            <div className="hands-indicator">
-              <span className="hand-icon">{status.has_hands ? '✋' : '👋'}</span>
-              <span className={`hand-status ${status.has_hands ? 'detected' : ''}`}>
-                {status.has_hands ? 'Hands Detected' : 'No Hands Detected'}
-              </span>
+            <div className="shortcut-hints">
+              <span><kbd>Enter</kbd> Add</span>
+              <span><kbd>Space</kbd> Space</span>
+              <span><kbd>⌫</kbd> Delete</span>
+              <span><kbd>X</kbd> Clear</span>
             </div>
           </div>
 
@@ -365,12 +605,55 @@ function TrackerPage({ theme, onSettingsOpen }) {
               </div>
             </div>
           </div>
+
+          {/* Confusion Matrix / Prediction History */}
+          <div className="card confusion-matrix-card">
+            <div className="card-header">
+              <span className="card-title">📊 Prediction History</span>
+              <span className="card-badge">{predictionHistory.length} samples</span>
+            </div>
+
+            {predictionHistory.length > 0 ? (
+              <>
+                <div className="letter-frequency-grid">
+                  {Object.entries(
+                    predictionHistory.reduce((acc, p) => {
+                      acc[p.letter] = (acc[p.letter] || 0) + 1
+                      return acc
+                    }, {})
+                  )
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 12)
+                    .map(([letter, count]) => (
+                      <div key={letter} className="frequency-item">
+                        <div className="frequency-letter">{letter}</div>
+                        <div className="frequency-bar">
+                          <div
+                            className="frequency-fill"
+                            style={{ width: `${(count / predictionHistory.length) * 100}%` }}
+                          ></div>
+                        </div>
+                        <div className="frequency-count">{count}</div>
+                      </div>
+                    ))
+                  }
+                </div>
+                <div className="avg-confidence">
+                  Avg Confidence: {(predictionHistory.reduce((sum, p) => sum + p.confidence, 0) / predictionHistory.length * 100).toFixed(0)}%
+                </div>
+              </>
+            ) : (
+              <div className="no-data">Add letters to see prediction stats</div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
+
+import InteractiveBackground from './InteractiveBackground'
 
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -386,6 +669,7 @@ function App() {
 
   return (
     <div className="app">
+      <InteractiveBackground />
       <Routes>
         <Route path="/" element={<HomePage onSettingsOpen={() => setSettingsOpen(true)} />} />
         <Route

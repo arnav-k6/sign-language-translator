@@ -20,6 +20,17 @@ function Settings({ isOpen, onClose, theme, onThemeChange }) {
         }
     }, [isOpen])
 
+    // Close on Escape key
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && isOpen) {
+                onClose()
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [isOpen, onClose])
+
     const fetchSettings = async () => {
         try {
             const res = await fetch(`${API_URL}/settings`)
