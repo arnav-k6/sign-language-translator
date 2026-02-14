@@ -57,6 +57,18 @@ function HomePage({ onSettingsOpen }) {
                         Get Started with Enhanced Sign Language
                         <span className="cta-arrow">→</span>
                     </button>
+
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                        <button className="hero-cta-secondary" onClick={() => navigate('/guide')}>
+                            📖 ASL Reference Guide
+                        </button>
+                        <button className="hero-cta-secondary" onClick={() => navigate('/history')}>
+                            💾 Session History
+                        </button>
+                        <button className="hero-cta-secondary" onClick={() => navigate('/quiz')}>
+                            🎮 Quiz Mode
+                        </button>
+                    </div>
                 </div>
 
                 <div className="hero-visual">

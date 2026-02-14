@@ -241,6 +241,78 @@ function Settings({ isOpen, onClose, theme, onThemeChange }) {
                         </div>
                     </div>
 
+                    {/* Sentence Builder Sensitivity */}
+                    <div className="settings-section">
+                        <h3>Sentence Builder Sensitivity</h3>
+
+                        <div className="setting-row slider-row">
+                            <div className="setting-info">
+                                <span className="setting-label">Auto-Add Threshold</span>
+                                <span className="setting-description">Min confidence for auto-adding letters after hold (higher = fewer mistakes, slower)</span>
+                            </div>
+                            <div className="slider-container">
+                                <input
+                                    type="range"
+                                    min="0.1"
+                                    max="0.95"
+                                    step="0.05"
+                                    value={parseFloat(localStorage.getItem('slt_auto_add_threshold') || '0.5')}
+                                    onChange={e => {
+                                        localStorage.setItem('slt_auto_add_threshold', e.target.value)
+                                        // Force re-render
+                                        setSaveMessage('')
+                                    }}
+                                    className="settings-slider"
+                                />
+                                <span className="slider-value">{parseFloat(localStorage.getItem('slt_auto_add_threshold') || '0.5').toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <div className="setting-row slider-row">
+                            <div className="setting-info">
+                                <span className="setting-label">Manual-Add Threshold</span>
+                                <span className="setting-description">Min confidence when pressing Enter to add a letter (lower = more permissive)</span>
+                            </div>
+                            <div className="slider-container">
+                                <input
+                                    type="range"
+                                    min="0.05"
+                                    max="0.8"
+                                    step="0.05"
+                                    value={parseFloat(localStorage.getItem('slt_manual_add_threshold') || '0.3')}
+                                    onChange={e => {
+                                        localStorage.setItem('slt_manual_add_threshold', e.target.value)
+                                        setSaveMessage('')
+                                    }}
+                                    className="settings-slider"
+                                />
+                                <span className="slider-value">{parseFloat(localStorage.getItem('slt_manual_add_threshold') || '0.3').toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        <div className="setting-row slider-row">
+                            <div className="setting-info">
+                                <span className="setting-label">Auto-Add Delay</span>
+                                <span className="setting-description">Seconds to hold a sign before it auto-adds</span>
+                            </div>
+                            <div className="slider-container">
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="5"
+                                    step="0.25"
+                                    value={parseFloat(localStorage.getItem('slt_auto_add_delay') || '2')}
+                                    onChange={e => {
+                                        localStorage.setItem('slt_auto_add_delay', e.target.value)
+                                        setSaveMessage('')
+                                    }}
+                                    className="settings-slider"
+                                />
+                                <span className="slider-value">{parseFloat(localStorage.getItem('slt_auto_add_delay') || '2').toFixed(1)}s</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Save Message */}
                     {saveMessage && (
                         <div className="save-message">{saveMessage}</div>

@@ -4,10 +4,11 @@ import HomePage from './HomePage'
 import Settings from './Settings'
 import './App.css'
 
-
-
 import EnhancedPage from './EnhancedPage'
 import Transcriber from './Transcriber'
+import GuidePage from './GuidePage'
+import HistoryPage from './HistoryPage'
+import QuizPage from './QuizPage'
 
 const API_URL = 'http://localhost:5001'
 
@@ -45,10 +46,22 @@ function TrackerPage({ theme, onSettingsOpen }) {
   // Prediction history for confusion matrix
   const [predictionHistory, setPredictionHistory] = useState([])
 
+  // Text-to-Speech state
+  const [isSpeaking, setIsSpeaking] = useState(false)
+
   // Auto-add tracking
   const stableLetterRef = useRef('')
   const stableTimerRef = useRef(null)
-  const AUTO_ADD_DELAY = 2000 // 2 seconds
+
+  // Configurable thresholds (from localStorage, set via Settings)
+  const getAutoAddThreshold = () => parseFloat(localStorage.getItem('slt_auto_add_threshold') || '0.5')
+  const getManualAddThreshold = () => parseFloat(localStorage.getItem('slt_manual_add_threshold') || '0.3')
+  const getAutoAddDelay = () => parseFloat(localStorage.getItem('slt_auto_add_delay') || '2') * 1000
+
+  // Word autocomplete
+  const [wordSuggestions, setWordSuggestions] = useState([])
+  const wordDictRef = useRef(null)
+  const loadingDictRef = useRef(false)
 
   // Fetch status periodically
   useEffect(() => {
@@ -83,13 +96,14 @@ function TrackerPage({ theme, onSettingsOpen }) {
     return () => clearInterval(interval)
   }, [])
 
-  // Auto-add letter after 2 seconds of stable prediction
+  // Auto-add letter after stable prediction (configurable threshold & delay)
   useEffect(() => {
     const currentLetter = prediction.letter
     const confidence = prediction.confidence
+    const autoThreshold = getAutoAddThreshold()
 
-    // Only consider high-confidence predictions
-    if (!currentLetter || confidence < 0.5) {
+    // Only consider predictions above the auto-add threshold
+    if (!currentLetter || confidence < autoThreshold) {
       // Clear timer if no valid prediction
       if (stableTimerRef.current) {
         clearTimeout(stableTimerRef.current)
@@ -112,11 +126,9 @@ function TrackerPage({ theme, onSettingsOpen }) {
       clearTimeout(stableTimerRef.current)
     }
 
-    // Start new timer
+    // Start new timer with configurable delay
     stableTimerRef.current = setTimeout(() => {
-      // Add letter automatically after 2 seconds
       const letterToAdd = String(currentLetter)
-      console.log('Auto-adding letter after 2s:', letterToAdd)
       setSentence(prev => prev + letterToAdd)
       setLastAddedLetter(letterToAdd)
       setPredictionHistory(prev => [...prev.slice(-99), {
@@ -124,13 +136,58 @@ function TrackerPage({ theme, onSettingsOpen }) {
         confidence: confidence,
         timestamp: Date.now()
       }])
-      // Reset so it can auto-add again if held longer
       stableLetterRef.current = ''
       stableTimerRef.current = null
-    }, AUTO_ADD_DELAY)
+    }, getAutoAddDelay())
 
     // Don't clear timer in cleanup - we manage it manually
   }, [prediction.letter, prediction.confidence])
+
+  // Word autocomplete - lazy-load dictionary and compute suggestions
+  useEffect(() => {
+    const words = sentence.split(' ')
+    const currentWord = words[words.length - 1]?.toLowerCase() || ''
+
+    if (currentWord.length < 2) {
+      setWordSuggestions([])
+      return
+    }
+
+    const computeSuggestions = (dict) => {
+      const prefix = currentWord
+      const matches = []
+      for (const word of Object.keys(dict)) {
+        if (word.startsWith(prefix) && word !== prefix && word.length >= 3 && word.length <= 12) {
+          matches.push(word)
+          if (matches.length >= 5) break
+        }
+      }
+      setWordSuggestions(matches)
+    }
+
+    if (wordDictRef.current) {
+      computeSuggestions(wordDictRef.current)
+    } else if (!loadingDictRef.current) {
+      loadingDictRef.current = true
+      fetch('/words_dictionary.json')
+        .then(res => res.json())
+        .then(data => {
+          wordDictRef.current = data
+          computeSuggestions(data)
+        })
+        .catch(err => console.error('Failed to load dictionary:', err))
+    }
+  }, [sentence])
+
+  // Accept a word suggestion
+  const acceptSuggestion = useCallback((word) => {
+    setSentence(prev => {
+      const words = prev.split(' ')
+      words[words.length - 1] = word.toUpperCase()
+      return words.join(' ')
+    })
+    setWordSuggestions([])
+  }, [])
 
   // Fetch landmarks for graph
   useEffect(() => {
@@ -264,15 +321,74 @@ function TrackerPage({ theme, onSettingsOpen }) {
     }
   }, [sentence])
 
-  // Add letter to sentence helper
+  // Text-to-Speech
+  const utteranceRef = useRef(null)
+
+  const speakSentence = useCallback(() => {
+    if (!sentence) return
+
+    // Stop any current speech first
+    speechSynthesis.cancel()
+
+    // Space out individual characters so TTS pronounces each one clearly
+    // e.g. "HELLO" becomes "H. E. L. L. O." which TTS reads letter by letter
+    const textToSpeak = sentence.includes(' ')
+      ? sentence
+      : sentence.split('').join('. ') + '.'
+
+    // Small delay after cancel() to avoid Chrome race condition
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(textToSpeak)
+      utterance.rate = 0.85
+      utterance.pitch = 1.0
+      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = (e) => {
+        // 'interrupted' is expected when user clicks Stop
+        if (e.error !== 'interrupted') {
+          console.error('TTS error:', e.error)
+        }
+        setIsSpeaking(false)
+      }
+
+      // Keep a ref to prevent garbage collection (Chrome bug)
+      utteranceRef.current = utterance
+      speechSynthesis.speak(utterance)
+    }, 50)
+  }, [sentence])
+
+  const stopSpeaking = useCallback(() => {
+    speechSynthesis.cancel()
+    utteranceRef.current = null
+    setIsSpeaking(false)
+  }, [])
+
+  // Save session to localStorage
+  const saveSession = useCallback(() => {
+    if (!sentence && predictionHistory.length === 0) return
+    const sessions = JSON.parse(localStorage.getItem('slt_sessions') || '[]')
+    const newSession = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      sentence,
+      predictionHistory: predictionHistory.slice(),
+      letterCount: sentence.replace(/\s/g, '').length,
+      avgConfidence: predictionHistory.length > 0
+        ? predictionHistory.reduce((sum, p) => sum + p.confidence, 0) / predictionHistory.length
+        : 0
+    }
+    sessions.unshift(newSession)
+    localStorage.setItem('slt_sessions', JSON.stringify(sessions))
+    return true
+  }, [sentence, predictionHistory])
+
+  // Add letter to sentence helper (uses configurable manual-add threshold)
   const addLetterToSentence = useCallback(() => {
-    console.log('addLetterToSentence called:', { letter: prediction.letter, confidence: prediction.confidence })
-    if (prediction.letter && prediction.confidence > 0.3) {
+    const manualThreshold = getManualAddThreshold()
+    if (prediction.letter && prediction.confidence > manualThreshold) {
       const letterToAdd = String(prediction.letter)
-      console.log('Adding letter:', letterToAdd, 'charCode:', letterToAdd.charCodeAt(0))
       setSentence(prev => {
         const newSentence = prev + letterToAdd
-        console.log('New sentence:', newSentence)
         return newSentence
       })
       setLastAddedLetter(letterToAdd)
@@ -528,11 +644,27 @@ function TrackerPage({ theme, onSettingsOpen }) {
               {lastAddedLetter && <span className="last-added">+{lastAddedLetter}</span>}
             </div>
 
+            {/* Word Autocomplete Suggestions */}
+            {wordSuggestions.length > 0 && (
+              <div className="word-suggestions">
+                <span className="suggestions-label">💡</span>
+                {wordSuggestions.map(word => (
+                  <button
+                    key={word}
+                    className="suggestion-chip"
+                    onClick={() => acceptSuggestion(word)}
+                  >
+                    {word}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="sentence-controls">
               <button
                 className="btn btn-small btn-primary"
                 onClick={addLetterToSentence}
-                disabled={!prediction.letter || prediction.confidence <= 0.3}
+                disabled={!prediction.letter || prediction.confidence <= getManualAddThreshold()}
               >
                 + Add Letter
               </button>
@@ -555,6 +687,24 @@ function TrackerPage({ theme, onSettingsOpen }) {
                 disabled={!sentence}
               >
                 📋 Copy
+              </button>
+              <button
+                className={`btn btn-small btn-speak ${isSpeaking ? 'speaking' : ''}`}
+                onClick={isSpeaking ? stopSpeaking : speakSentence}
+                disabled={!sentence}
+              >
+                {isSpeaking ? '⏹️ Stop' : '🔊 Speak'}
+              </button>
+              <button
+                className="btn btn-small btn-save-session"
+                onClick={() => {
+                  if (saveSession()) {
+                    alert('Session saved!')
+                  }
+                }}
+                disabled={!sentence && predictionHistory.length === 0}
+              >
+                💾 Save
               </button>
             </div>
 
@@ -684,6 +834,9 @@ function App() {
 
         <Route path="/transcriber" element={<Transcriber onSettingsOpen={() => setSettingsOpen(true)} />} />
         <Route path="/enhanced" element={<EnhancedPage theme={theme} />} />
+        <Route path="/guide" element={<GuidePage onSettingsOpen={() => setSettingsOpen(true)} />} />
+        <Route path="/history" element={<HistoryPage onSettingsOpen={() => setSettingsOpen(true)} />} />
+        <Route path="/quiz" element={<QuizPage onSettingsOpen={() => setSettingsOpen(true)} />} />
       </Routes>
 
       <Settings
