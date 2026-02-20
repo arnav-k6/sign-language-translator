@@ -3,21 +3,31 @@ Flask server for Sign Language Translator GUI
 Provides video streaming, AI predictions, and API endpoints for the React frontend
 """
 
-import cv2
-import mediapipe as mp
-import numpy as np
+import cv2  # type: ignore
+import mediapipe as mp  # type: ignore
+import numpy as np  # type: ignore
 import time
 import threading
-import torch
-import joblib
-from flask import Flask, Response, jsonify, request
-from flask_cors import CORS
+import torch  # type: ignore
+import joblib  # type: ignore
+from flask import Flask, Response, jsonify, request  # type: ignore
+from flask_cors import CORS  # type: ignore
 from collections import deque
-from dataparser import append_frame
-from detect import get_os
-from video_transcriber import transcribe_video_file
+from dataparser import append_frame  # type: ignore
+from detect import get_os  # type: ignore
+from video_transcriber import transcribe_video_file, letter_sequence_to_words  # type: ignore
 import tempfile
 import os as os_module
+
+# Enhanced mode (LSTM + HELLO)
+_enhanced_processor = None
+_face_landmarker = None
+
+# LSTM full-word model for main tracker (hybrid prediction)
+_lstm_model = None
+_lstm_signs = ["hello", "me", "thankyou", "no", "yes"]
+_lstm_seq = None
+
 
 app = Flask(__name__)
 CORS(app)
@@ -66,6 +76,7 @@ NUM_COORDS = 3
 latest_result = None
 current_landmarks = []  # For API access
 current_prediction = {"letter": "", "confidence": 0.0}  # Store latest prediction
+current_word_prediction = {"word": "", "confidence": 0.0}  # LSTM full-word
 lock = threading.Lock()
 landmarker = None
 settings_changed = False
@@ -138,11 +149,11 @@ def load_ml_model():
 
 
 def predict_gesture(left_features, right_features):
-    """Make a prediction from landmark features"""
+    """Make a prediction from landmark features - returns top 3 predictions"""
     global current_prediction
     
     if not model_loaded:
-        return "", 0.0
+        return "", 0.0, []
     
     try:
         mode = current_settings.get('prediction_mode', 'both')
@@ -151,45 +162,58 @@ def predict_gesture(left_features, right_features):
         features = np.array(left_features + right_features).reshape(1, -1)
         
         # Scale features (same as during training)
-        features_scaled = scaler.transform(features)
+        features_scaled = scaler.transform(features)  # type: ignore
         
         # Convert to tensor
         features_tensor = torch.FloatTensor(features_scaled)
         
         # Predict
         with torch.no_grad():
-            outputs = ml_model(features_tensor)
+            outputs = ml_model(features_tensor)  # type: ignore
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
             
             # Filter by mode
             if mode == 'letters':
-                valid_indices = [i for i, c in enumerate(classes) if c.isalpha()]
+                valid_indices = [i for i, c in enumerate(classes) if c.isalpha()]  # type: ignore
             elif mode == 'numbers':
-                valid_indices = [i for i, c in enumerate(classes) if c.isdigit()]
+                valid_indices = [i for i, c in enumerate(classes) if c.isdigit()]  # type: ignore
             else:
-                valid_indices = list(range(len(classes)))
+                valid_indices = list(range(len(classes)))  # type: ignore
             
             if not valid_indices:
-                return "", 0.0
+                return "", 0.0, []
             
-            # Get best prediction among valid classes
+            # Get filtered probabilities
             filtered_probs = probabilities[0, valid_indices]
-            best_idx = filtered_probs.argmax().item()
-            confidence_value = filtered_probs[best_idx].item()
-            predicted_class = classes[valid_indices[best_idx]]
+            
+            # Get top 3 predictions
+            top_k = min(3, len(valid_indices))
+            top_values, top_indices = torch.topk(filtered_probs, top_k)
+            
+            top_predictions = []
+            for i in range(top_k):
+                idx = top_indices[i].item()
+                conf = top_values[i].item()
+                letter = classes[valid_indices[idx]]  # type: ignore
+                top_predictions.append({"letter": str(letter), "confidence": float(conf)})
+            
+            # Best prediction
+            best_letter = top_predictions[0]["letter"] if top_predictions else ""
+            best_confidence = top_predictions[0]["confidence"] if top_predictions else 0.0
         
-        # Update current prediction
+        # Update current prediction with top 3
         with lock:
             current_prediction = {
-                "letter": str(predicted_class),
-                "confidence": float(confidence_value)
+                "letter": best_letter,
+                "confidence": best_confidence,
+                "top3": top_predictions
             }
         
-        return predicted_class, confidence_value
+        return best_letter, best_confidence, top_predictions
         
     except Exception as e:
         print(f"Prediction error: {e}")
-        return "", 0.0
+        return "", 0.0, []
 
 
 def get_empty_hand():
@@ -220,20 +244,71 @@ def create_landmarker():
     return HandLandmarker.create_from_options(options)
 
 
+# =============== ENHANCED MODE (LSTM + HELLO) =================
+def _init_enhanced():
+    """Lazily init enhanced mode components."""
+    global _enhanced_processor, _face_landmarker
+    if _enhanced_processor is not None:
+        return True
+    try:
+        from enhanced import EnhancedProcessor  # type: ignore
+        script_dir = os_module.path.dirname(os_module.path.abspath(__file__))
+        face_path = os_module.path.join(script_dir, 'face_landmarker.task')
+        sign_path = os_module.path.join(script_dir, 'pytorch', 'sign_model.pth')
+        _enhanced_processor = EnhancedProcessor(face_path, sign_path)
+        # Face landmarker
+        if os_module.path.exists(face_path):
+            FaceLandmarker = mp.tasks.vision.FaceLandmarker
+            FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
+            opts = FaceLandmarkerOptions(
+                base_options=BaseOptions(model_asset_path=face_path),
+                num_faces=5
+            )
+            _face_landmarker = FaceLandmarker.create_from_options(opts)
+        else:
+            _face_landmarker = None
+        print("  ✅ Enhanced mode (LSTM + HELLO) ready")
+        return True
+    except Exception as e:
+        print(f"  ⚠️ Enhanced mode disabled: {e}")
+        return False
+
+
+def _load_lstm_model():
+    """Load LSTM model for full-word prediction (optional)."""
+    global _lstm_model, _lstm_seq
+    if _lstm_model is not None:
+        return
+    try:
+        import sys
+        sys.path.insert(0, os_module.path.join(os_module.path.dirname(__file__), 'pytorch'))
+        from model import SignModel  # type: ignore
+        sign_path = os_module.path.join(os_module.path.dirname(__file__), 'pytorch', 'sign_model.pth')
+        if os_module.path.exists(sign_path):
+            _lstm_model = SignModel(len(_lstm_signs))
+            _lstm_model.load_state_dict(torch.load(sign_path, map_location='cpu', weights_only=False))
+            _lstm_model.eval()
+            _lstm_seq = deque(maxlen=20)
+            print("  ✅ LSTM word model loaded")
+    except Exception as e:
+        print(f"  ⚠️ LSTM model not loaded: {e}")
+
+
 # Load AI model at startup
 load_ml_model()
+_load_lstm_model()
 
 # Create initial landmarker
 landmarker = create_landmarker()
 
 # Camera setup
-if get_os() == "mac":
-    cap = cv2.VideoCapture(1)
-else:
-    cap = cv2.VideoCapture(0)
+def get_default_camera_index():
+    return 1 if get_os() == "mac" else 0
 
+cap = cv2.VideoCapture(get_default_camera_index())
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+current_camera_index = get_default_camera_index()
 
 
 def generate_frames():
@@ -299,8 +374,8 @@ def generate_frames():
                 
                 # Draw skeleton
                 for c in HAND_CONNECTIONS:
-                    start = hand_landmarks[c[0]]
-                    end = hand_landmarks[c[1]]
+                    start = hand_landmarks[c[0]]  # type: ignore
+                    end = hand_landmarks[c[1]]  # type: ignore
                     x1, y1 = int(start.x * w), int(start.y * h)
                     x2, y2 = int(end.x * w), int(end.y * h)
                     cv2.line(frame, (x1, y1), (x2, y2), (0, 200, 255), 2)
@@ -315,31 +390,39 @@ def generate_frames():
                         radius = 8
                     cv2.circle(frame, (x, y), radius, color, -1)
             
-            # Draw prediction on frame
-            with lock:
-                pred = current_prediction.copy()
-            
-            if pred["letter"] and pred["confidence"] > 0.3:
-                # Large letter display
-                cv2.putText(frame, pred["letter"], (50, 120), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 4, (0, 255, 0), 8)
-                
-                # Confidence bar
-                bar_width = int(pred["confidence"] * 250)
-                cv2.rectangle(frame, (50, 150), (50 + bar_width, 175), (0, 255, 0), -1)
-                cv2.rectangle(frame, (50, 150), (300, 175), (255, 255, 255), 2)
-                cv2.putText(frame, f"{pred['confidence']:.0%}", (310, 170),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            # Prediction is now shown via React AR overlay, no need to draw on frame
         else:
             # No hands - clear prediction
             with lock:
                 current_prediction = {"letter": "", "confidence": 0.0}
+                current_word_prediction = {"word": "", "confidence": 0.0}
         
         # Update buffer and current landmarks
         if len(frame_landmarks) == 126:
             with lock:
                 gesture_buffer.append(frame_landmarks)
                 current_landmarks = frame_landmarks.copy()
+                # LSTM sequence for full-word prediction
+                if _lstm_seq is not None and _lstm_model is not None:
+                    _lstm_seq.append(frame_landmarks)
+                    if len(_lstm_seq) == 20:
+                        arr = np.array(_lstm_seq, dtype=np.float32)
+                        if np.sum(np.abs(arr)) >= 1.0:
+                            try:
+                                x = torch.FloatTensor(arr).unsqueeze(0)
+                                with torch.no_grad():
+                                    pred = _lstm_model(x)
+                                    probs = torch.nn.functional.softmax(pred, dim=1)
+                                    conf, idx = probs.max(1)
+                                    if conf.item() > 0.7:
+                                        current_word_prediction["word"] = _lstm_signs[idx.item()]
+                                        current_word_prediction["confidence"] = float(conf.item())
+                                    else:
+                                        current_word_prediction["word"] = ""
+                                        current_word_prediction["confidence"] = 0.0
+                            except Exception:
+                                current_word_prediction["word"] = ""
+                                current_word_prediction["confidence"] = 0.0
         
         # Encode frame
         _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
@@ -351,6 +434,46 @@ def generate_frames():
         time.sleep(0.016)  # ~60fps cap
 
 
+def generate_enhanced_frames():
+    """MJPEG stream with LSTM + HELLO detection overlay."""
+    global is_running, _enhanced_processor, _face_landmarker
+    if not _init_enhanced() or _enhanced_processor is None:
+        # Fallback: serve normal video with "Enhanced unavailable" overlay
+        for chunk in generate_frames():
+            yield chunk
+        return
+    # Create sync HandLandmarker for IMAGE mode
+    hand_opts = HandLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=model_path),
+        running_mode=VisionRunningMode.IMAGE,
+        num_hands=2,
+        min_tracking_confidence=0.4,
+        min_hand_detection_confidence=0.4,
+        min_hand_presence_confidence=0.6
+    )
+    enhanced_hand = HandLandmarker.create_from_options(hand_opts)
+    try:
+        while is_running and cap.isOpened():
+            success, frame = cap.read()
+            if not success:
+                break
+            frame = cv2.flip(frame, 1)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+            hand_result = enhanced_hand.detect(mp_image)
+            face_result = _face_landmarker.detect(mp_image) if _face_landmarker else None
+            text = _enhanced_processor.process_frame(hand_result, face_result, rgb) # type: ignore
+            # Draw overlay
+            h, w, _ = frame.shape
+            cv2.putText(frame, text, (40, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            time.sleep(0.016)
+    finally:
+        enhanced_hand.close()
+
+
 # =============== API ROUTES =================
 
 @app.route('/video_feed')
@@ -360,13 +483,50 @@ def video_feed():
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
+@app.route('/enhanced_feed')
+def enhanced_feed():
+    """MJPEG video stream with LSTM + HELLO overlay"""
+    return Response(generate_enhanced_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/enhanced_output')
+def enhanced_output():
+    """Current enhanced mode prediction (HELLO, yes, no, etc.)"""
+    _init_enhanced()
+    text = "..."
+    if _enhanced_processor is not None:
+        text = _enhanced_processor.get_current_text()
+    return jsonify({"success": True, "text": text})
+
+
+@app.route('/launch_enhanced', methods=['POST'])
+def launch_enhanced():
+    """Initialize enhanced mode (called by frontend)"""
+    ok = _init_enhanced()
+    return jsonify({"success": ok, "message": "Enhanced mode ready" if ok else "Enhanced mode unavailable"})
+
+
 @app.route('/prediction')
 def prediction():
-    """Get current AI prediction"""
+    """Get current AI prediction with top 3 and hand position"""
     with lock:
+        # Get hand position for AR overlay (use wrist landmark - index 0)
+        hand_position = None
+        if len(current_landmarks) >= 3:
+            # First hand wrist position (normalized 0-1)
+            hand_position = {
+                "x": current_landmarks[0],  # wrist x
+                "y": current_landmarks[1]   # wrist y
+            }
+        
         return jsonify({
-            "letter": current_prediction["letter"],
-            "confidence": current_prediction["confidence"],
+            "letter": current_prediction.get("letter", ""),
+            "confidence": current_prediction.get("confidence", 0.0),
+            "top3": current_prediction.get("top3", []),
+            "word": current_word_prediction.get("word", ""),
+            "word_confidence": current_word_prediction.get("confidence", 0.0),
+            "hand_position": hand_position,
             "model_loaded": model_loaded,
             "mode": current_settings.get('prediction_mode', 'both')
         })
@@ -389,7 +549,7 @@ def capture():
                 append_frame(data)
             
             threading.Thread(target=save_async, args=(flattened,), daemon=True).start()
-            capture_count += 1
+            capture_count += 1  # type: ignore
             
             return jsonify({
                 "success": True,
@@ -443,15 +603,23 @@ def transcribe_video():
         
         print(f"Using settings: duration={min_stable_duration}s, conf={confidence_threshold}")
 
-        # Transcribe the video
-        result_text = transcribe_video_file(
+        # Transcribe the video (with segments for playback sync)
+        result_text, segments = transcribe_video_file(
             temp_path, 
             mode=mode,
             confidence_threshold=confidence_threshold,
-            min_stable_duration=min_stable_duration
+            min_stable_duration=min_stable_duration,
+            return_segments=True
         )
-        
-        return jsonify({"text": result_text, "success": True})
+        # Word-level segmentation
+        words = letter_sequence_to_words(result_text)
+        return jsonify({
+            "text": result_text,
+            "words": words,
+            "words_text": " ".join(words) if words else result_text,
+            "segments": segments,
+            "success": True
+        })
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -478,6 +646,37 @@ def status():
         })
 
 
+@app.route('/feedback')
+def hand_feedback():
+    """Real-time hand position feedback (too far, tilted, out of frame)."""
+    with lock:
+        if len(current_landmarks) != 126:
+            return jsonify({"status": "no_hands", "hint": "Show your hand to the camera"})
+        lm = current_landmarks
+        # Hand center (approx wrist average for both hands - use first hand)
+        cx = sum(lm[i * 3] for i in range(21)) / 21
+        cy = sum(lm[i * 3 + 1] for i in range(21)) / 21
+        cz = sum(lm[i * 3 + 2] for i in range(21)) / 21
+        # Hand "size" - max span in xy
+        xs = [lm[i * 3] for i in range(21)]
+        ys = [lm[i * 3 + 1] for i in range(21)]
+        span_x = max(xs) - min(xs) if xs else 0
+        span_y = max(ys) - min(ys) if ys else 0
+        span = max(span_x, span_y)
+        status = "ok"
+        hint = ""
+        if cx < 0.1 or cx > 0.9 or cy < 0.1 or cy > 0.9:
+            status = "out_of_frame"
+            hint = "Move hand toward center"
+        elif span < 0.05:
+            status = "too_far"
+            hint = "Move hand closer to camera"
+        elif span > 0.5:
+            status = "too_close"
+            hint = "Move hand slightly back"
+        return jsonify({"status": status, "hint": hint, "hand_span": round(span, 3)})
+
+
 @app.route('/landmarks')
 def landmarks():
     """Get current landmark data for visualization"""
@@ -500,10 +699,48 @@ def landmarks():
             return jsonify({"has_data": False})
 
 
+@app.route('/cameras')
+def list_cameras():
+    """List available camera indices (0-5)."""
+    cameras = []
+    for i in range(6):
+        test = cv2.VideoCapture(i)
+        if test.isOpened():
+            cameras.append({"id": i, "name": f"Camera {i}"})
+            test.release()
+    return jsonify(cameras)
+
+
+@app.route('/camera', methods=['POST'])
+def set_camera():
+    """Switch to a different camera index."""
+    global cap, current_camera_index
+    try:
+        data = request.get_json()
+        idx = int(data.get('index', 0))
+        if idx < 0 or idx > 10:
+            return jsonify({"success": False, "message": "Invalid camera index"}), 400
+        with lock:
+            old_cap = cap
+            cap = cv2.VideoCapture(idx)
+            if not cap.isOpened():
+                cap = old_cap
+                return jsonify({"success": False, "message": "Failed to open camera"}), 400
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            old_cap.release()
+            current_camera_index = idx
+        return jsonify({"success": True, "camera_index": idx})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+
 @app.route('/settings', methods=['GET'])
 def get_settings():
     """Get current HandLandmarker settings"""
-    return jsonify(current_settings)
+    out = dict(current_settings)
+    out['camera_index'] = current_camera_index
+    return jsonify(out)
 
 
 @app.route('/settings', methods=['POST'])
@@ -549,7 +786,7 @@ def update_settings():
             val = float(data['transcription_confidence'])
             if 0 <= val <= 1.0:
                 current_settings['transcription_confidence'] = val
-        
+
         # Flag for landmarker recreation
         settings_changed = True
         

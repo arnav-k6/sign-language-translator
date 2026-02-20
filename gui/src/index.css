@@ -1,70 +1,192 @@
-/* Dark Theme (Default) */
+/* ==========================================================================
+   SIGN LANGUAGE TRANSLATOR — Design System 2025
+   Glassmorphism • Minimalism • Refined Typography
+   ========================================================================== */
+
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #12121a;
-  --bg-card: #1a1a24;
-  --accent-primary: #6366f1;
-  --accent-secondary: #8b5cf6;
-  --accent-success: #10b981;
-  --accent-warning: #f59e0b;
-  --accent-danger: #ef4444;
+  /* ── Surfaces (Slate Professional) ── */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #172033;
+  --bg-tertiary: #334155;
+  --bg-elevated: #1e293b;
+
+  /* ── Glassmorphism ── */
+  --glass-bg: rgba(30, 41, 59, 0.6);
+  --glass-bg-light: rgba(51, 65, 85, 0.4);
+  --glass-bg-strong: rgba(15, 23, 42, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.12);
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+
+  /* ── Accent (Emerald + Sky) ── */
+  --accent-primary: #34d399;
+  --accent-primary-hover: #6ee7b7;
+  --accent-secondary: #10b981;
+  --accent-tertiary: rgba(52, 211, 153, 0.1);
+  --accent-sky: #38bdf8;
+  --accent-success: #34d399;
+  --accent-warning: #fbbf24;
+  --accent-danger: #f87171;
+
+  /* ── Text ── */
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
-  --border-color: #2a2a3a;
-  --glow-color: rgba(99, 102, 241, 0.3);
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  --text-tertiary: #64748b;
+  --text-muted: #475569;
+
+  /* ── Borders & Shadows ── */
+  --border-color: rgba(148, 163, 184, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 32px rgba(52, 211, 153, 0.12);
+
+  /* ── Radii (Softer, modern) ── */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* ── Transitions ── */
+  --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Typography (Major Third 1.25 scale) ── */
+  --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: var(--font-body);
+
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 2rem;      /* 32px */
+  --text-4xl: 2.5rem;    /* 40px */
+  --text-5xl: 3rem;      /* 48px */
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+
+  /* ── Spacing (8px grid) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-12: 96px;
 }
 
-/* Light Theme */
+/* ── Light Theme (Warm minimal) ── */
 [data-theme="light"] {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #e2e8f0;
+  --bg-primary: #fafbfc;
+  --bg-secondary: #f1f5f9;
   --bg-card: #ffffff;
-  --accent-primary: #6366f1;
-  --accent-secondary: #8b5cf6;
-  --accent-success: #10b981;
-  --accent-warning: #f59e0b;
-  --accent-danger: #ef4444;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --border-color: #cbd5e1;
-  --glow-color: rgba(99, 102, 241, 0.2);
-  --shadow-color: rgba(0, 0, 0, 0.1);
+  --bg-tertiary: #e2e8f0;
+  --bg-elevated: #ffffff;
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-light: rgba(255, 255, 255, 0.56);
+  --glass-bg-strong: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-border-hover: rgba(0, 0, 0, 0.1);
+
+  --accent-primary: #059669;
+  --accent-primary-hover: #10b981;
+  --accent-secondary: #047857;
+  --accent-tertiary: rgba(5, 150, 105, 0.08);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --text-muted: #94a3b8;
+
+  --border-color: rgba(0, 0, 0, 0.08);
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 24px rgba(5, 150, 105, 0.08);
 }
 
-* {
+/* Light theme settings overlay */
+[data-theme="light"] .settings-overlay {
+  background: rgba(248, 250, 252, 0.7);
+}
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* ── Base ── */
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--bg-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   color: var(--text-primary);
+  background: var(--bg-primary);
   min-height: 100vh;
   overflow-x: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* Scrollbar */
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  border-radius: 4px;
+  border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-primary);
+  background: var(--text-tertiary);
+}
+
+/* ── Focus (Accessible) ── */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(52, 211, 153, 0.25);
+  color: var(--text-primary);
 }

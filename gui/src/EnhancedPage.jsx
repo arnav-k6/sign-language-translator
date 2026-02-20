@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
 
-function EnhancedPage({ theme }) {
+
+function EnhancedPage() {
     const navigate = useNavigate()
     const [isOffline, setIsOffline] = useState(false)
+    const [predictionText, setPredictionText] = useState("...")
 
     // Use port 5001 as defined in server.py
     const API_URL = 'http://localhost:5001'
@@ -13,9 +15,33 @@ function EnhancedPage({ theme }) {
     useEffect(() => {
         // Check if backend is alive
         fetch(`${API_URL}/status`)
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error()
+                return res.json()
+            })
+            .then(() => setIsOffline(false))
             .catch(() => setIsOffline(true))
-    }, [])
+
+        // Poll for enhanced prediction
+        const interval = setInterval(() => {
+            fetch(`${API_URL}/enhanced_output`)
+                .then(res => {
+                    if (!res.ok) throw new Error("Fetch failed")
+                    return res.json()
+                })
+                .then(data => {
+                    if (data.success) {
+                        setPredictionText(data.text === "..." ? "Waiting..." : data.text)
+                    }
+                })
+                .catch(err => {
+                    // console.log("Prediction poll error", err)
+                    // Don't clutter logs, but maybe set status?
+                })
+        }, 500) // Poll every 500ms
+
+        return () => clearInterval(interval)
+    }, [API_URL])
 
     return (
         <div className="tracker-page">
@@ -51,10 +77,19 @@ function EnhancedPage({ theme }) {
                                 src={`${API_URL}/enhanced_feed`}
                                 alt="Enhanced Sign Language Feed"
                                 className="video-feed"
+                                onError={() => setIsOffline(true)}
                             />
 
                             <div className="video-overlay">
                                 <span className="overlay-badge recording">Live Analysis</span>
+                            </div>
+
+                            {/* Enhanced Prediction Overlay */}
+                            <div className="prediction-overlay">
+                                <div className="prediction-content">
+                                    <span className="prediction-label">Detected Sign</span>
+                                    <h2 className="prediction-text">{predictionText}</h2>
+                                </div>
                             </div>
                         </div>
 

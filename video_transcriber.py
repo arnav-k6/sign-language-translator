@@ -141,7 +141,7 @@ def predict_gesture(model, scaler, classes, left_features, right_features, mode=
     return str(predicted_class), float(confidence_value)
 
 
-def transcribe_video_file(video_path: str, mode: str = 'both', confidence_threshold: float = 0.75, min_stable_duration: float = 0.25) -> str:
+def transcribe_video_file(video_path: str, mode: str = 'both', confidence_threshold: float = 0.75, min_stable_duration: float = 0.25, return_segments: bool = False):
     """
     Transcribe a video file of sign language to text.
 
@@ -152,7 +152,8 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
         min_stable_duration: Minimum duration (in seconds) a gesture must be held to be transcribed.
 
     Returns:
-        Transcribed text string.
+        If return_segments=False: transcribed text string.
+        If return_segments=True: (text, segments) where segments is list of {start, end, char}.
     """
     print(f"🎥 Transcribing video: {video_path}")
 
@@ -194,6 +195,7 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
     print(f"  🛡️ Grace period: 0.15s ({max_grace_frames} frames)")
 
     result_text = []
+    segments = []  # {start, end, char} in seconds
     last_char = None
     stable_count = 0
     grace_counter = 0
@@ -263,6 +265,10 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
                 # Only add if it's different from the last *output* character
                 if not result_text or result_text[-1] != predicted_char:
                     result_text.append(predicted_char)
+                    if return_segments:
+                        t_start = (frame_idx - required_stable_frames) / fps if fps else 0
+                        t_end = frame_idx / fps if fps else 0
+                        segments.append({"start": round(t_start, 2), "end": round(t_end, 2), "char": predicted_char})
                     print(f"  ✅ Detected: '{predicted_char}' (conf: {confidence:.2f})")
         
         else:
@@ -287,7 +293,42 @@ def transcribe_video_file(video_path: str, mode: str = 'both', confidence_thresh
 
     final_text = ''.join(result_text)
     print(f"📝 Transcription complete: '{final_text}'")
+    if return_segments:
+        return final_text, segments
     return final_text
+
+
+def letter_sequence_to_words(letter_seq: str, dictionary: dict = None) -> list:
+    """
+    Convert raw letter sequence (e.g. 'HELLOWORLD') to list of words using dictionary.
+    Uses greedy longest-match. Dictionary keys should be lowercase.
+    """
+    if not letter_seq or not letter_seq.strip():
+        return []
+    if dictionary is None:
+        dict_path = os.path.join(os.path.dirname(__file__), 'words_dictionary.json')
+        if os.path.exists(dict_path):
+            import json
+            with open(dict_path, 'r') as f:
+                dictionary = json.load(f)
+        else:
+            return []
+    text = letter_seq.strip().upper().replace(' ', '')
+    words = []
+    i = 0
+    while i < len(text):
+        found = None
+        for wlen in range(min(12, len(text) - i), 0, -1):
+            chunk = text[i:i + wlen].lower()
+            if chunk in dictionary:
+                found = chunk
+                break
+        if found:
+            words.append(found)
+            i += len(found)
+        else:
+            i += 1
+    return words
 
 
 if __name__ == '__main__':

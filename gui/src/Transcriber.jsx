@@ -1,14 +1,19 @@
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 
 const API_URL = "http://localhost:5001"
 
 export default function Transcriber({ onSettingsOpen }) {
     const navigate = useNavigate()
+    const videoRef = useRef(null)
+    const [currentSegmentIndex, setCurrentSegmentIndex] = useState(-1)
 
     const [videoFile, setVideoFile] = useState(null)
     const [videoURL, setVideoURL] = useState(null)
     const [transcript, setTranscript] = useState("")
+    const [words, setWords] = useState([])
+    const [wordsText, setWordsText] = useState("")
+    const [segments, setSegments] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
 
@@ -18,6 +23,9 @@ export default function Transcriber({ onSettingsOpen }) {
         setVideoFile(file)
         setVideoURL(URL.createObjectURL(file))
         setTranscript("")
+        setWords([])
+        setWordsText("")
+        setSegments([])
         setError("")
     }
 
@@ -43,6 +51,9 @@ export default function Transcriber({ onSettingsOpen }) {
                 setError(data.error || `Server error: ${res.status}`)
             } else {
                 setTranscript(data.text || "(No text detected)")
+                setWords(data.words || [])
+                setWordsText(data.words_text || data.text || "")
+                setSegments(data.segments || [])
             }
         } catch (err) {
             setError(`Transcription failed: ${err.message}`)
@@ -83,6 +94,7 @@ export default function Transcriber({ onSettingsOpen }) {
 
                         {videoURL && (
                             <video
+                                ref={videoRef}
                                 src={videoURL}
                                 controls
                                 className="video-preview"
@@ -109,9 +121,40 @@ export default function Transcriber({ onSettingsOpen }) {
                         </div>
 
                         {transcript ? (
-                            <div className="transcript-box">
-                                {transcript}
-                            </div>
+                            <>
+                                {wordsText && words.length > 0 && (
+                                    <div className="transcript-box transcript-words" style={{ marginBottom: "0.5rem" }}>
+                                        <strong>Words:</strong> {wordsText}
+                                    </div>
+                                )}
+                                <div className="transcript-box">
+                                    {segments.length > 0 ? (
+                                        <span className="transcript-letters">
+                                            {segments.map((seg, i) => (
+                                                <span
+                                                    key={i}
+                                                    className={`transcript-char ${currentSegmentIndex === i ? 'highlight' : ''}`}
+                                                    onClick={() => seekToSegment(i)}
+                                                    title={`${seg.start}s - ${seg.end}s`}
+                                                >
+                                                    {seg.char}
+                                                </span>
+                                            ))}
+                                        </span>
+                                    ) : (
+                                        <><strong>Raw letters:</strong> {transcript}</>
+                                    )}
+                                </div>
+                                {words.length > 0 && (
+                                    <button
+                                        className="btn btn-small"
+                                        style={{ marginTop: "0.5rem" }}
+                                        onClick={() => navigator.clipboard.writeText(wordsText)}
+                                    >
+                                        Copy as words
+                                    </button>
+                                )}
+                            </>
                         ) : (
                             <div className="no-prediction">
                                 Upload a video to begin

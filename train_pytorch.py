@@ -21,14 +21,14 @@
 # USAGE:
 #   python train_pytorch.py
 
-import torch
+import torch # type: ignore
 import torch.nn as nn
-import torch.optim as optim
+import torch.optim as optim # type: ignore
 from torch.utils.data import Dataset, DataLoader
-import pandas as pd
-import numpy as np
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler # type: ignore
 import os
 
 # ================= CONFIGURATION =================
@@ -153,7 +153,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer):
         # Track metrics
         total_loss += loss.item()
         _, predicted = outputs.max(1)  # Get class with highest score
-        correct += (predicted == labels).sum().item()
+        correct += (predicted == labels).sum().item() # type: ignore
         total += labels.size(0)
     
     accuracy = correct / total
@@ -180,7 +180,7 @@ def evaluate(model, dataloader, criterion):
             
             total_loss += loss.item()
             _, predicted = outputs.max(1)
-            correct += (predicted == labels).sum().item()
+            correct += (predicted == labels).sum().item() # type: ignore
             total += labels.size(0)
     
     accuracy = correct / total
@@ -261,7 +261,7 @@ def main():
     
     # Calculate class weights for imbalanced data
     # Classes with fewer samples get higher weights
-    from sklearn.utils.class_weight import compute_class_weight
+    from sklearn.utils.class_weight import compute_class_weight # type: ignore
     class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
     class_weights_tensor = torch.FloatTensor(class_weights).to(device)
     print(f"  - Using class weights for imbalanced data")
@@ -325,7 +325,7 @@ def main():
     print(f"  - Model saved to: {MODEL_FILE}")
     
     # Save scaler for inference
-    import joblib
+    import joblib # type: ignore
     joblib.dump(scaler, SCALER_FILE)
     joblib.dump(label_encoder, LABEL_ENCODER_FILE)
     print(f"  - Scaler saved to: {SCALER_FILE}")

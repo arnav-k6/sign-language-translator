@@ -6,7 +6,7 @@
 # USAGE:
 #   python process_asl_dataset.py
 
-import cv2
+import cv2 # type: ignore
 import mediapipe as mp
 import csv
 import os
@@ -37,7 +37,7 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 def download_dataset():
     """Download dataset using kagglehub"""
     try:
-        import kagglehub
+        import kagglehub # type: ignore
         print(f"Downloading dataset: {KAGGLE_DATASET}")
         path = kagglehub.dataset_download(KAGGLE_DATASET)
         print(f"Dataset downloaded to: {path}")
@@ -123,7 +123,7 @@ def main():
     dataset_path = find_training_folder(dataset_base)
     if dataset_path is None:
         print(f"\nERROR: Could not find training data folder in {dataset_base}")
-        print("Contents:", list(dataset_base.iterdir())[:10])
+        print("Contents:", list(dataset_base.iterdir())[:10]) # type: ignore
         return
     
     print(f"\nTraining data found at: {dataset_path}")
@@ -174,13 +174,13 @@ def main():
                 )
                 
                 if MAX_IMAGES_PER_LETTER:
-                    image_files = image_files[:MAX_IMAGES_PER_LETTER]
+                    image_files = image_files[:MAX_IMAGES_PER_LETTER] # type: ignore
                 
                 print(f"\nProcessing '{letter}': {len(image_files)} images...")
                 
                 success_count = 0
                 for i, img_path in enumerate(image_files):
-                    total_processed += 1
+                    total_processed += 1 # type: ignore
                     
                     if (i + 1) % 100 == 0:
                         print(f"  {i+1}/{len(image_files)}...")
@@ -209,9 +209,9 @@ def main():
                                 else:
                                     right_features = features
                             
-                            row = left_features + right_features + [letter]
+                            row = left_features + right_features + [letter] # type: ignore
                             writer.writerow(row)
-                            success_count += 1
+                            success_count += 1 # type: ignore
                             total_success += 1
                     except Exception as e:
                         pass  # Skip problematic images
@@ -221,7 +221,7 @@ def main():
     print("\n" + "=" * 60)
     print("PROCESSING COMPLETE")
     print(f"  Processed: {total_processed}")
-    print(f"  Detected: {total_success} ({total_success/max(total_processed,1)*100:.1f}%)")
+    print(f"  Detected: {total_success} ({total_success/max(total_processed,1)*100:.1f}%)") # type: ignore
     print(f"  Saved to: {OUTPUT_FILE}")
     print("=" * 60)
     print("\nNext: python train_pytorch.py")

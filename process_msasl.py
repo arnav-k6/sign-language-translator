@@ -1,10 +1,10 @@
 
-import cv2
+import cv2 # type: ignore
 import mediapipe as mp
 import csv
 import os
 import json
-import yt_dlp
+import yt_dlp # type: ignore
 import numpy as np
 import time
 from pathlib import Path
@@ -104,7 +104,7 @@ def process_video(video_path, start_time, end_time, label, landmarker, writer):
         if not ret:
             break
             
-        current_frame += 1
+        current_frame += 1 # type: ignore
         frames_processed += 1
         
         # Convert to MediaPipe Image
@@ -142,7 +142,7 @@ def process_video(video_path, start_time, end_time, label, landmarker, writer):
                     if idx == 0: left_features = features
                     else: right_features = features
             
-            row = left_features + right_features + [label]
+            row = left_features + right_features + [label] # type: ignore
             writer.writerow(row)
             frames_with_hands += 1
             
