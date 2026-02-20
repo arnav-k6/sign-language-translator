@@ -6,12 +6,12 @@
 # USAGE:
 #   python test_model.py
 
-import cv2
+import cv2 # type: ignore       
 import mediapipe as mp
 import time
-import torch
+import torch # type: ignore     
 import numpy as np
-import joblib
+import joblib # type: ignore
 
 # ================= CONFIGURATION =================
 model_path = 'hand_landmarker.task'
@@ -239,7 +239,7 @@ def main():
                            cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 10)
                 
                 # Confidence bar
-                bar_width = int(confidence * 300)
+                bar_width = int(confidence * 300)  # type: ignore
                 cv2.rectangle(frame, (50, 200), (50 + bar_width, 230), (0, 255, 0), -1)
                 cv2.rectangle(frame, (50, 200), (350, 230), (255, 255, 255), 2)
                 cv2.putText(frame, f"{confidence:.0%}", (360, 225),

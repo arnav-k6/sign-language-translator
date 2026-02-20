@@ -8,10 +8,13 @@ function Settings({ isOpen, onClose, theme, onThemeChange }) {
         min_tracking_confidence: 0.4,
         min_hand_detection_confidence: 0.4,
         min_hand_presence_confidence: 0.6,
-        num_hands: 2
+        num_hands: 2,
+        camera_index: 0
     })
+    const [cameras, setCameras] = useState([])
     const [isSaving, setIsSaving] = useState(false)
     const [saveMessage, setSaveMessage] = useState('')
+    const [soundOnAdd, setSoundOnAdd] = useState(() => localStorage.getItem('slt_sound_on_add') !== 'false')
 
     // Fetch current settings when modal opens
     useEffect(() => {
@@ -33,11 +36,36 @@ function Settings({ isOpen, onClose, theme, onThemeChange }) {
 
     const fetchSettings = async () => {
         try {
-            const res = await fetch(`${API_URL}/settings`)
-            const data = await res.json()
-            setSettings(data)
+            const [settingsRes, camerasRes] = await Promise.all([
+                fetch(`${API_URL}/settings`),
+                fetch(`${API_URL}/cameras`)
+            ])
+            const data = await settingsRes.json()
+            setSettings(prev => ({ ...prev, ...data }))
+            const cams = await camerasRes.json()
+            setCameras(Array.isArray(cams) ? cams : [])
         } catch (err) {
             console.error('Failed to fetch settings:', err)
+        }
+    }
+
+    const handleCameraChange = async (index) => {
+        try {
+            const res = await fetch(`${API_URL}/camera`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ index })
+            })
+            const data = await res.json()
+            if (data.success) {
+                setSettings(prev => ({ ...prev, camera_index: index }))
+                setSaveMessage('✅ Camera switched')
+                setTimeout(() => setSaveMessage(''), 2000)
+            } else {
+                setSaveMessage('❌ ' + (data.message || 'Camera switch failed'))
+            }
+        } catch (err) {
+            setSaveMessage('❌ Connection error')
         }
     }
 
@@ -116,6 +144,28 @@ function Settings({ isOpen, onClose, theme, onThemeChange }) {
                             </button>
                         </div>
                     </div>
+
+                    {/* Camera Selection */}
+                    {cameras.length > 1 && (
+                        <div className="settings-section">
+                            <h3>Camera</h3>
+                            <div className="setting-row">
+                                <div className="setting-info">
+                                    <span className="setting-label">Camera</span>
+                                    <span className="setting-description">Select video input</span>
+                                </div>
+                                <select
+                                    className="settings-select"
+                                    value={settings.camera_index ?? 0}
+                                    onChange={(e) => handleCameraChange(parseInt(e.target.value))}
+                                >
+                                    {cameras.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Hand Detection Settings */}
                     <div className="settings-section">
@@ -244,6 +294,25 @@ function Settings({ isOpen, onClose, theme, onThemeChange }) {
                     {/* Sentence Builder Sensitivity */}
                     <div className="settings-section">
                         <h3>Sentence Builder Sensitivity</h3>
+
+                        <div className="setting-row">
+                            <div className="setting-info">
+                                <span className="setting-label">Sound on Letter Add</span>
+                                <span className="setting-description">Play a brief beep when a letter is added</span>
+                            </div>
+                            <button
+                                className={`theme-toggle ${soundOnAdd ? 'active' : ''}`}
+                                onClick={() => {
+                                    const next = !soundOnAdd
+                                    setSoundOnAdd(next)
+                                    localStorage.setItem('slt_sound_on_add', next ? 'true' : 'false')
+                                    setSaveMessage('✅ Sound ' + (next ? 'enabled' : 'disabled'))
+                                    setTimeout(() => setSaveMessage(''), 2000)
+                                }}
+                            >
+                                <span className="theme-text">{soundOnAdd ? 'ON' : 'OFF'}</span>
+                            </button>
+                        </div>
 
                         <div className="setting-row slider-row">
                             <div className="setting-info">

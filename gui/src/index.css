@@ -1,60 +1,82 @@
-/* Professional Design System — Sign Language Translator */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* ==========================================================================
+   SIGN LANGUAGE TRANSLATOR — Design System 2025
+   Glassmorphism • Minimalism • Refined Typography
+   ========================================================================== */
 
 :root {
-  /* ── Surfaces ── */
-  --bg-primary: #0c0c0e;
-  --bg-secondary: #16161a;
-  --bg-card: #12121a;
-  --bg-tertiary: #1e1e28;
-  --bg-elevated: #1a1a24;
+  /* ── Surfaces (Slate Professional) ── */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #172033;
+  --bg-tertiary: #334155;
+  --bg-elevated: #1e293b;
 
-  /* ── Glass ── */
-  --glass-bg: rgba(18, 18, 26, 0.75);
-  --glass-bg-light: rgba(30, 30, 40, 0.5);
-  --glass-border: rgba(255, 255, 255, 0.06);
+  /* ── Glassmorphism ── */
+  --glass-bg: rgba(30, 41, 59, 0.6);
+  --glass-bg-light: rgba(51, 65, 85, 0.4);
+  --glass-bg-strong: rgba(15, 23, 42, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.12);
   --glass-blur: 16px;
+  --glass-blur-strong: 24px;
 
-  /* ── Accent ── */
+  /* ── Accent (Emerald + Sky) ── */
   --accent-primary: #34d399;
+  --accent-primary-hover: #6ee7b7;
   --accent-secondary: #10b981;
-  --accent-tertiary: rgba(52, 211, 153, 0.12);
+  --accent-tertiary: rgba(52, 211, 153, 0.1);
+  --accent-sky: #38bdf8;
   --accent-success: #34d399;
   --accent-warning: #fbbf24;
   --accent-danger: #f87171;
 
   /* ── Text ── */
-  --text-primary: #e8e8ed;
-  --text-secondary: #6e6e82;
-  --text-tertiary: #4a4a5e;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-muted: #475569;
 
   /* ── Borders & Shadows ── */
-  --border-color: #1e1e28;
+  --border-color: rgba(148, 163, 184, 0.12);
   --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-glow: rgba(255, 255, 255, 0.04);
-  --glow-color: rgba(52, 211, 153, 0.08);
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(52, 211, 153, 0.1);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 32px rgba(52, 211, 153, 0.12);
 
-  /* ── Radii ── */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --radius-full: 999px;
+  /* ── Radii (Softer, modern) ── */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
 
   /* ── Transitions ── */
-  --transition-fast: 100ms ease;
+  --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* ── Typography ── */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+  /* ── Typography (Major Third 1.25 scale) ── */
+  --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: var(--font-body);
+
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 2rem;      /* 32px */
+  --text-4xl: 2.5rem;    /* 40px */
+  --text-5xl: 3rem;      /* 48px */
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
 
   /* ── Spacing (8px grid) ── */
   --space-1: 4px;
@@ -67,48 +89,44 @@
   --space-8: 40px;
   --space-9: 48px;
   --space-10: 64px;
-
-  /* ── Mesh gradient ── */
-  --mesh-1: #0c0c0e;
-  --mesh-2: #0e0e14;
-  --mesh-3: #100f16;
-  --mesh-4: #0d0d12;
+  --space-12: 96px;
 }
 
-/* ── Light Theme ── */
+/* ── Light Theme (Warm minimal) ── */
 [data-theme="light"] {
-  --bg-primary: #f8f9fa;
-  --bg-secondary: #f0f1f3;
+  --bg-primary: #fafbfc;
+  --bg-secondary: #f1f5f9;
   --bg-card: #ffffff;
-  --bg-tertiary: #e5e7eb;
+  --bg-tertiary: #e2e8f0;
   --bg-elevated: #ffffff;
 
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-bg-light: rgba(255, 255, 255, 0.6);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-light: rgba(255, 255, 255, 0.56);
+  --glass-bg-strong: rgba(255, 255, 255, 0.95);
   --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-border-hover: rgba(0, 0, 0, 0.1);
 
-  --accent-primary: #10b981;
-  --accent-secondary: #059669;
-  --accent-tertiary: rgba(16, 185, 129, 0.08);
+  --accent-primary: #059669;
+  --accent-primary-hover: #10b981;
+  --accent-secondary: #047857;
+  --accent-tertiary: rgba(5, 150, 105, 0.08);
 
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --text-muted: #94a3b8;
 
-  --border-color: #e5e7eb;
+  --border-color: rgba(0, 0, 0, 0.08);
   --border-subtle: rgba(0, 0, 0, 0.04);
-  --border-glow: rgba(255, 255, 255, 0.8);
-  --glow-color: rgba(16, 185, 129, 0.06);
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 20px rgba(16, 185, 129, 0.06);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 24px rgba(5, 150, 105, 0.08);
+}
 
-  --mesh-1: #f8f9fa;
-  --mesh-2: #f6f7f9;
-  --mesh-3: #f4f5f8;
-  --mesh-4: #f7f8fa;
+/* Light theme settings overlay */
+[data-theme="light"] .settings-overlay {
+  background: rgba(248, 250, 252, 0.7);
 }
 
 /* ── Reset ── */
@@ -120,24 +138,21 @@
   box-sizing: border-box;
 }
 
-/* ── Body ── */
-body {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.6;
-  background:
-    radial-gradient(ellipse at 15% 5%, var(--mesh-2) 0%, transparent 50%),
-    radial-gradient(ellipse at 85% 10%, var(--mesh-3) 0%, transparent 45%),
-    radial-gradient(ellipse at 80% 90%, var(--mesh-4) 0%, transparent 50%),
-    radial-gradient(ellipse at 10% 85%, var(--mesh-2) 0%, transparent 45%),
-    var(--bg-primary);
-  background-attachment: fixed;
-  color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
+/* ── Base ── */
+html {
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
   text-rendering: optimizeLegibility;
 }
 
@@ -147,7 +162,8 @@ body {
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -163,7 +179,7 @@ body {
   background: var(--text-tertiary);
 }
 
-/* ── Focus ring ── */
+/* ── Focus (Accessible) ── */
 :focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-primary);
@@ -171,6 +187,6 @@ body {
 
 /* ── Selection ── */
 ::selection {
-  background: rgba(52, 211, 153, 0.2);
+  background: rgba(52, 211, 153, 0.25);
   color: var(--text-primary);
 }

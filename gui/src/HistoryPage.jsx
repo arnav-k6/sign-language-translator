@@ -24,6 +24,56 @@ export default function HistoryPage({ onSettingsOpen }) {
         localStorage.removeItem('slt_sessions')
     }
 
+    const exportJSON = () => {
+        if (sessions.length === 0) return
+        const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `sign_language_sessions_${new Date().toISOString().split('T')[0]}.json`
+        link.click()
+        URL.revokeObjectURL(url)
+    }
+
+    const importJSON = () => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.json,application/json'
+        input.onchange = (e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            const reader = new FileReader()
+            reader.onload = () => {
+                try {
+                    const imported = JSON.parse(reader.result)
+                    const arr = Array.isArray(imported) ? imported : [imported]
+                    const valid = arr.filter(s => s && (s.id || s.sentence || s.timestamp))
+                    if (valid.length === 0) {
+                        alert('No valid sessions in file')
+                        return
+                    }
+                    const existing = JSON.parse(localStorage.getItem('slt_sessions') || '[]')
+                    const existingIds = new Set(existing.map(s => s.id))
+                    let merged = [...existing]
+                    for (const s of valid) {
+                        if (!existingIds.has(s.id)) {
+                            merged.push(s)
+                            existingIds.add(s.id)
+                        }
+                    }
+                    merged.sort((a, b) => (b.id || 0) - (a.id || 0))
+                    localStorage.setItem('slt_sessions', JSON.stringify(merged))
+                    setSessions(merged)
+                    alert(`Imported ${valid.length} session(s)`)
+                } catch (err) {
+                    alert('Invalid JSON file')
+                }
+            }
+            reader.readAsText(file)
+        }
+        input.click()
+    }
+
     const exportCSV = () => {
         if (sessions.length === 0) return
 
@@ -88,7 +138,22 @@ export default function HistoryPage({ onSettingsOpen }) {
                     disabled={sessions.length === 0}
                     style={{ maxWidth: '220px' }}
                 >
-                    📥 Export as CSV
+                    📥 Export CSV
+                </button>
+                <button
+                    className="btn btn-capture"
+                    onClick={exportJSON}
+                    disabled={sessions.length === 0}
+                    style={{ maxWidth: '220px' }}
+                >
+                    📥 Export JSON
+                </button>
+                <button
+                    className="btn btn-secondary"
+                    onClick={importJSON}
+                    style={{ maxWidth: '180px' }}
+                >
+                    📤 Import
                 </button>
                 <button
                     className="btn btn-quit"

@@ -6,7 +6,7 @@
 # USAGE:
 #   python process_dataset.py
 
-import cv2
+import cv2 # type: ignore
 import mediapipe as mp
 import csv
 import os
@@ -100,13 +100,13 @@ def main():
                 
                 image_files = list(letter_path.glob("*.jpg")) + list(letter_path.glob("*.png"))
                 if MAX_IMAGES_PER_LETTER:
-                    image_files = image_files[:MAX_IMAGES_PER_LETTER]
+                    image_files = image_files[:MAX_IMAGES_PER_LETTER] # type: ignore
                 
                 print(f"\nProcessing '{letter}': {len(image_files)} images...")
                 
                 success_count = 0
                 for i, img_path in enumerate(image_files):
-                    total_processed += 1
+                    total_processed += 1 # type: ignore
                     
                     if (i + 1) % 100 == 0:
                         print(f"  {i+1}/{len(image_files)}...")
@@ -135,10 +135,10 @@ def main():
                                 else:
                                     right_features = features
                             
-                            row = left_features + right_features + [letter]
+                            row = left_features + right_features + [letter] # type: ignore
                             writer.writerow(row)
-                            success_count += 1
-                            total_success += 1
+                            success_count += 1 # type: ignore
+                            total_success += 1 # type: ignore
                     except Exception as e:
                         pass  # Skip problematic images
                 
@@ -147,7 +147,7 @@ def main():
     print("\n" + "=" * 60)
     print("PROCESSING COMPLETE")
     print(f"  Processed: {total_processed}")
-    print(f"  Detected: {total_success} ({total_success/total_processed*100:.1f}%)")
+    print(f"  Detected: {total_success} ({total_success/total_processed*100:.1f}%)") # type: ignore
     print(f"  Saved to: {OUTPUT_FILE}")
     print("=" * 60)
     print("\nNext: python train_pytorch.py")

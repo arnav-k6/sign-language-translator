@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useBackendStatus } from './useBackendStatus'
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import HomePage from './HomePage'
 import Settings from './Settings'
@@ -9,6 +10,10 @@ import Transcriber from './Transcriber'
 import GuidePage from './GuidePage'
 import HistoryPage from './HistoryPage'
 import QuizPage from './QuizPage'
+import PracticePage from './PracticePage'
+import PrivacyPolicy from './PrivacyPolicy'
+import TermsOfService from './TermsOfService'
+import CookiePolicy from './CookiePolicy'
 
 const API_URL = 'http://localhost:5001'
 
@@ -27,9 +32,12 @@ function TrackerPage({ theme, onSettingsOpen }) {
     confidence: 0,
     mode: 'both',
     top3: [],
+    word: '',
+    word_confidence: 0,
     hand_position: null
   })
   const [landmarks, setLandmarks] = useState(null)
+  const [handFeedback, setHandFeedback] = useState({ status: 'ok', hint: '' })
   const [isCapturing, setIsCapturing] = useState(false)
   const [landmarkHistory, setLandmarkHistory] = useState([])
   const [arOverlayEnabled, setArOverlayEnabled] = useState(true)
@@ -55,6 +63,24 @@ function TrackerPage({ theme, onSettingsOpen }) {
 
   // Configurable thresholds (from localStorage, set via Settings)
   const getAutoAddThreshold = () => parseFloat(localStorage.getItem('slt_auto_add_threshold') || '0.5')
+  const getSoundEnabled = () => localStorage.getItem('slt_sound_on_add') !== 'false'
+
+  const playAddBeep = useCallback(() => {
+    if (!getSoundEnabled()) return
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = 400
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.15, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.05)
+    } catch { /* ignore */ }
+  }, [])
   const getManualAddThreshold = () => parseFloat(localStorage.getItem('slt_manual_add_threshold') || '0.3')
   const getAutoAddDelay = () => parseFloat(localStorage.getItem('slt_auto_add_delay') || '2') * 1000
 
@@ -127,14 +153,17 @@ function TrackerPage({ theme, onSettingsOpen }) {
     }
 
     // Start new timer with configurable delay
+    const top3Snap = prediction.top3 || []
     stableTimerRef.current = setTimeout(() => {
       const letterToAdd = String(currentLetter)
+      playAddBeep()
       setSentence(prev => prev + letterToAdd)
       setLastAddedLetter(letterToAdd)
       setPredictionHistory(prev => [...prev.slice(-99), {
         letter: letterToAdd,
         confidence: confidence,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        top3: top3Snap
       }])
       stableLetterRef.current = ''
       stableTimerRef.current = null
@@ -187,6 +216,23 @@ function TrackerPage({ theme, onSettingsOpen }) {
       return words.join(' ')
     })
     setWordSuggestions([])
+  }, [])
+
+  // Fetch hand position feedback
+  useEffect(() => {
+    const fetchFeedback = async () => {
+      try {
+        const res = await fetch(`${API_URL}/feedback`)
+        const data = await res.json()
+        if (data.status && data.status !== 'ok') {
+          setHandFeedback({ status: data.status, hint: data.hint || '' })
+        } else {
+          setHandFeedback({ status: 'ok', hint: '' })
+        }
+      } catch { /* silent */ }
+    }
+    const interval = setInterval(fetchFeedback, 500)
+    return () => clearInterval(interval)
   }, [])
 
   // Fetch landmarks for graph
@@ -386,6 +432,7 @@ function TrackerPage({ theme, onSettingsOpen }) {
   const addLetterToSentence = useCallback(() => {
     const manualThreshold = getManualAddThreshold()
     if (prediction.letter && prediction.confidence > manualThreshold) {
+      playAddBeep()
       const letterToAdd = String(prediction.letter)
       setSentence(prev => {
         const newSentence = prev + letterToAdd
@@ -395,10 +442,11 @@ function TrackerPage({ theme, onSettingsOpen }) {
       setPredictionHistory(prev => [...prev.slice(-99), {
         letter: letterToAdd,
         confidence: prediction.confidence,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        top3: prediction.top3 || []
       }])
     }
-  }, [prediction.letter, prediction.confidence])
+  }, [prediction.letter, prediction.confidence, playAddBeep])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -520,6 +568,12 @@ function TrackerPage({ theme, onSettingsOpen }) {
                 <span className="overlay-badge recording">TRACKING</span>
               )}
             </div>
+            {handFeedback.status !== 'ok' && handFeedback.hint && (
+              <div className="feedback-toast">
+                <span className="feedback-icon">⚠️</span>
+                <span>{handFeedback.hint}</span>
+              </div>
+            )}
 
             {/* Fullscreen button - positioned bottom right of video */}
             <button className="fullscreen-btn" onClick={toggleFullscreen}>
@@ -614,6 +668,24 @@ function TrackerPage({ theme, onSettingsOpen }) {
                 </div>
               )}
             </div>
+
+            {/* Word prediction (LSTM) */}
+            {prediction.word && prediction.word_confidence > 0.5 && (
+              <div className="word-prediction-bar">
+                <span className="word-label">Word:</span>
+                <span className="word-value">{prediction.word}</span>
+                <span className="word-conf">{(prediction.word_confidence * 100).toFixed(0)}%</span>
+                <button
+                  className="btn btn-small btn-primary"
+                  onClick={() => {
+                    setSentence(prev => (prev ? prev + ' ' : '') + prediction.word)
+                    setLastAddedLetter('')
+                  }}
+                >
+                  + Add Word
+                </button>
+              </div>
+            )}
 
             {/* Mode Selector */}
             <div className="mode-selector">
@@ -765,32 +837,73 @@ function TrackerPage({ theme, onSettingsOpen }) {
 
             {predictionHistory.length > 0 ? (
               <>
-                <div className="letter-frequency-grid">
-                  {Object.entries(
-                    predictionHistory.reduce((acc, p) => {
-                      acc[p.letter] = (acc[p.letter] || 0) + 1
-                      return acc
-                    }, {})
-                  )
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 12)
-                    .map(([letter, count]) => (
-                      <div key={letter} className="frequency-item">
-                        <div className="frequency-letter">{letter}</div>
-                        <div className="frequency-bar">
-                          <div
-                            className="frequency-fill"
-                            style={{ width: `${(count / predictionHistory.length) * 100}%` }}
-                          ></div>
-                        </div>
-                        <div className="frequency-count">{count}</div>
+                {(() => {
+                  const hist = predictionHistory
+                  const freq = hist.reduce((acc, p) => {
+                    acc[p.letter] = (acc[p.letter] || 0) + 1
+                    return acc
+                  }, {})
+                  const confusion = {}
+                  hist.forEach(p => {
+                    const trueLabel = p.letter
+                      ; (p.top3 || []).forEach(alt => {
+                        if (alt.letter && alt.letter !== trueLabel) {
+                          confusion[trueLabel] = confusion[trueLabel] || {}
+                          confusion[trueLabel][alt.letter] = (confusion[trueLabel][alt.letter] || 0) + 1
+                        }
+                      })
+                  })
+                  const confusedPairs = Object.entries(confusion).flatMap(([t, alts]) =>
+                    Object.entries(alts).map(([a, c]) => [t, a, c])
+                  ).sort((a, b) => b[2] - a[2]).slice(0, 8)
+                  const maxFreq = Math.max(...Object.values(freq), 1)
+                  const maxConf = Math.max(...confusedPairs.map(x => x[2]), 1)
+                  return (
+                    <>
+                      <div className="letter-frequency-grid">
+                        {Object.entries(
+                          predictionHistory.reduce((acc, p) => {
+                            acc[p.letter] = (acc[p.letter] || 0) + 1
+                            return acc
+                          }, {})
+                        )
+                          .sort((a, b) => b[1] - a[1])
+                          .slice(0, 12)
+                          .map(([letter, count]) => (
+                            <div key={letter} className="frequency-item">
+                              <div className="frequency-letter">{letter}</div>
+                              <div className="frequency-bar">
+                                <div
+                                  className="frequency-fill"
+                                  style={{ width: `${(count / maxFreq) * 100}%` }}
+                                ></div>
+                              </div>
+                              <div className="frequency-count">{count}</div>
+                            </div>
+                          ))
+                        }
                       </div>
-                    ))
-                  }
-                </div>
-                <div className="avg-confidence">
-                  Avg Confidence: {(predictionHistory.reduce((sum, p) => sum + p.confidence, 0) / predictionHistory.length * 100).toFixed(0)}%
-                </div>
+                      {confusedPairs.length > 0 && (
+                        <div className="confusion-pairs">
+                          <div className="confusion-label">Top confused pairs:</div>
+                          <div className="confusion-grid">
+                            {confusedPairs.map(([t, a, c], i) => (
+                              <div key={i} className="confusion-pair">
+                                <span className="confusion-true">{t}</span>
+                                <span className="confusion-arrow">→</span>
+                                <span className="confusion-alt">{a}</span>
+                                <span className="confusion-count">×{c}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="avg-confidence">
+                        Avg Confidence: {(predictionHistory.reduce((sum, p) => sum + p.confidence, 0) / predictionHistory.length * 100).toFixed(0)}%
+                      </div>
+                    </>
+                  )
+                })()}
               </>
             ) : (
               <div className="no-data">Add letters to see prediction stats</div>
@@ -810,6 +923,7 @@ function App() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'dark'
   })
+  const { isOnline } = useBackendStatus()
 
   // Apply theme to document
   useEffect(() => {
@@ -819,6 +933,12 @@ function App() {
 
   return (
     <div className="app">
+      {!isOnline && (
+        <div className="backend-offline-banner">
+          <span className="offline-icon">⚠️</span>
+          Server disconnected. Make sure the backend is running on port 5001. Reconnecting...
+        </div>
+      )}
       <InteractiveBackground />
       <Routes>
         <Route path="/" element={<HomePage onSettingsOpen={() => setSettingsOpen(true)} />} />
@@ -837,6 +957,10 @@ function App() {
         <Route path="/guide" element={<GuidePage onSettingsOpen={() => setSettingsOpen(true)} />} />
         <Route path="/history" element={<HistoryPage onSettingsOpen={() => setSettingsOpen(true)} />} />
         <Route path="/quiz" element={<QuizPage onSettingsOpen={() => setSettingsOpen(true)} />} />
+        <Route path="/practice" element={<PracticePage onSettingsOpen={() => setSettingsOpen(true)} />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/cookies" element={<CookiePolicy />} />
       </Routes>
 
       <Settings
