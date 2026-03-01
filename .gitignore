@@ -71,3 +71,13 @@ config.yaml
 requirements.txt
 landmark_data.csv
 hand_landmarker.task
+
+# ==========================
+# Large ML Artifacts
+# ==========================
+models/*.pth
+models/*.pkl
+models/*.task
+data/*.csv
+data/*.json
+*.zip
