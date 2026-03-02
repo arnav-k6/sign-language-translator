@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
 
-const API_URL = 'http://localhost:5001'
+import { API_URL } from './config'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const NUMBERS = '0123456789'.split('')

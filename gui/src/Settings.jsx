@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
-const API_URL = 'http://localhost:5001'
+import { API_URL } from './config'
 
 function Settings({ isOpen, onClose, theme, onThemeChange }) {
     const [settings, setSettings] = useState({

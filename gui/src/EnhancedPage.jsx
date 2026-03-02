@@ -1,16 +1,12 @@
-
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
-
+import { API_URL } from './config'
 
 function EnhancedPage() {
     const navigate = useNavigate()
     const [isOffline, setIsOffline] = useState(false)
     const [predictionText, setPredictionText] = useState("...")
-
-    // Use port 5001 as defined in server.py
-    const API_URL = 'http://localhost:5001'
 
     useEffect(() => {
         // Check if backend is alive

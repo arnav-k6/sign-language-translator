@@ -15,7 +15,7 @@ import PrivacyPolicy from './PrivacyPolicy'
 import TermsOfService from './TermsOfService'
 import CookiePolicy from './CookiePolicy'
 
-const API_URL = 'http://localhost:5001'
+import { API_URL } from './config'
 
 function TrackerPage({ theme, onSettingsOpen }) {
   const navigate = useNavigate()
