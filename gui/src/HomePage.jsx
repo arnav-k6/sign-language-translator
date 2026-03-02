@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
+import { API_URL } from './config'
 
 const TITLE_TEXT = 'SignMate'
 const TYPING_SPEED = 60
 
 function HomePage({ onSettingsOpen }) {
     const navigate = useNavigate()
-    const API_URL = 'http://localhost:5001'
 
     const [displayedTitle, setDisplayedTitle] = useState(() =>
         typeof sessionStorage !== 'undefined' && sessionStorage.getItem('slt_typing_seen') ? TITLE_TEXT : ''

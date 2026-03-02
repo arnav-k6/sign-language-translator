@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const API_URL = 'http://localhost:5001'
+import { API_URL } from './config'
 
 /**
  * Hook to track backend connectivity. Polls /status every 2s.
